@@ -1,0 +1,160 @@
+@base = http://localhost:3000
+
+### Saúde do serviço e do PostgreSQL
+GET {{base}}/health
+
+### Estratégias disponíveis (Strategy)
+GET {{base}}/estrategias
+
+### 1. Cria o projeto e já recebe as equipes recomendadas (Template Method + Strategy + Observer)
+# @name criar
+POST {{base}}/projetos
+Content-Type: application/json
+x-request-id: demo-cinebridge
+
+{
+  "titulo": "Vozes do Sertão",
+  "produtorId": "produtor-1",
+  "genero": "drama",
+  "tipoCaptacao": "FICCAO",
+  "duracaoMinutos": 95,
+  "orcamento": 280000,
+  "dataInicio": "2027-03-01T00:00:00.000Z",
+  "dataEntrega": "2027-06-30T00:00:00.000Z",
+  "localizacao": { "cidade": "São Paulo", "uf": "SP", "latitude": -23.5505, "longitude": -46.6333 },
+  "requisitos": [
+    { "papel": "DIRETOR", "peso": 10 },
+    { "papel": "DIRETOR_FOTOGRAFIA", "peso": 8 },
+    { "papel": "ROTEIRISTA", "peso": 7 },
+    { "papel": "EDITOR", "peso": 6 },
+    { "papel": "SONOPLASTA", "peso": 5 },
+    { "papel": "EFEITOS_VISUAIS", "peso": 3 }
+  ],
+  "estrategia": "similaridade-cosseno"
+}
+
+@projetoId = {{criar.response.body.$.projeto.id}}
+@equipeId = {{criar.response.body.$.projeto.equipes[0].id}}
+
+### 2. Mesma obra com outra estratégia: o ranking muda (Strategy)
+POST {{base}}/projetos/{{projetoId}}/recomendacoes
+Content-Type: application/json
+
+{ "estrategia": "filtragem-colaborativa" }
+
+### 3. Consulta o projeto (depois da nova rodada, pegue o id da primeira equipe de novo)
+# @name projeto
+GET {{base}}/projetos/{{projetoId}}
+
+@equipeAtual = {{projeto.response.body.$.equipes[0].id}}
+
+### 4. Produtor aceita o diretor sugerido: o profissional recebe um convite (Observer)
+# @name aceite
+POST {{base}}/projetos/{{projetoId}}/equipes/{{equipeAtual}}/membros/DIRETOR/aceite
+
+@conviteId = {{aceite.response.body.$.convite.id}}
+
+### 5. Profissional recusa: o AtualizadorComposicao dispara nova rodada só para DIRETOR (Observer + Template Method)
+POST {{base}}/convites/{{conviteId}}/resposta
+Content-Type: application/json
+
+{ "aceito": false }
+
+### 6. Produtor rejeita o editor sugerido e pede substituto só para EDITOR
+DELETE {{base}}/projetos/{{projetoId}}/equipes/{{equipeAtual}}/membros/EDITOR
+
+###
+POST {{base}}/projetos/{{projetoId}}/equipes/{{equipeAtual}}/membros/EDITOR/substituicao
+Content-Type: application/json
+
+{}
+
+### 7. Corte de orçamento significativo: reavaliação refaz a equipe
+POST {{base}}/projetos/{{projetoId}}/reavaliacao
+Content-Type: application/json
+
+{ "orcamento": 150000 }
+
+### 8. Validação, compatibilidade e relatório (Visitor)
+GET {{base}}/projetos/{{projetoId}}/relatorio
+
+### 9. Trilha de auditoria de todas as ações (log estruturado)
+GET {{base}}/projetos/{{projetoId}}/auditoria
+
+### 10. Histórico de recomendações de todas as rodadas
+GET {{base}}/projetos/{{projetoId}}/recomendacoes
+
+### 11. Caixa de mensagens internas do produtor
+GET {{base}}/mensagens/produtor-1
+
+### ATVII-1. Tipos de projeto com fábrica registrada (Abstract Factory)
+GET {{base}}/tipos-projeto
+
+### ATVII-2. Modelos pré-configurados que servem de protótipo (Prototype)
+GET {{base}}/modelos-projeto
+
+### ATVII-3. Documentário criado por clonagem do modelo, com ajustes finos (Prototype + Abstract Factory)
+# @name doModelo
+POST {{base}}/modelos-projeto/documentario-entrevistas/projetos
+Content-Type: application/json
+
+{
+  "titulo": "Rios do Cerrado",
+  "produtorId": "produtor-2",
+  "dataInicio": "2027-03-01T00:00:00.000Z",
+  "dataEntrega": "2027-06-30T00:00:00.000Z",
+  "detalhes": { "tema": "Rios do Cerrado", "entrevistados": ["Seu Tião", "Dona Lia"] }
+}
+
+### ATVII-3b. Completa os detalhes do documentário (mesclados aos atuais)
+PATCH {{base}}/projetos/{{doModelo.response.body.$.projeto.id}}/detalhes
+Content-Type: application/json
+
+{ "detalhes": { "entrevistados": ["Seu Tião", "Dona Lia", "Zé do Rio"] } }
+
+### ATVII-4. Relatório do documentário: validação geral + regras do documentário e detalhes do tipo
+GET {{base}}/projetos/{{doModelo.response.body.$.projeto.id}}/relatorio
+
+### ATVII-5. Campanha publicitária criada direto, com os detalhes do tipo (recomendador publicitário)
+POST {{base}}/projetos
+Content-Type: application/json
+
+{
+  "titulo": "Café Serrano - Verão",
+  "produtorId": "agencia-1",
+  "genero": "publicidade",
+  "tipoCaptacao": "PUBLICITARIO",
+  "duracaoMinutos": 1,
+  "orcamento": 120000,
+  "dataInicio": "2027-03-01T00:00:00.000Z",
+  "dataEntrega": "2027-05-15T00:00:00.000Z",
+  "localizacao": { "cidade": "São Paulo", "uf": "SP", "latitude": -23.5505, "longitude": -46.6333 },
+  "requisitos": [
+    { "papel": "DIRETOR", "peso": 8 },
+    { "papel": "DIRETOR_FOTOGRAFIA", "peso": 7 },
+    { "papel": "EDITOR", "peso": 6 },
+    { "papel": "SONOPLASTA", "peso": 4 }
+  ],
+  "detalhes": { "marca": "Café Serrano", "veiculacao": ["TV", "DIGITAL"], "pecas": 3 }
+}
+
+### ATVII-6. Animação sem EFEITOS_VISUAIS: a fábrica de animação barra a orquestração (422)
+POST {{base}}/projetos
+Content-Type: application/json
+
+{
+  "titulo": "Lobo-guará",
+  "produtorId": "estudio-1",
+  "genero": "infantil",
+  "tipoCaptacao": "ANIMACAO",
+  "duracaoMinutos": 12,
+  "orcamento": 200000,
+  "dataInicio": "2027-03-01T00:00:00.000Z",
+  "dataEntrega": "2027-08-31T00:00:00.000Z",
+  "localizacao": { "cidade": "Recife", "uf": "PE", "latitude": -8.0476, "longitude": -34.877 },
+  "requisitos": [{ "papel": "DIRETOR", "peso": 5 }],
+  "detalhes": { "tecnica": "3D", "softwares": ["Blender"] }
+}
+
+### ATVII-7. Mensagens que o notificador do tipo enviou à agência
+GET {{base}}/mensagens/agencia-1
