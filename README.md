@@ -747,3 +747,17 @@ Psiu: a Cena 1 passa toda vez que o serviço sobe. Procure por "tomada" em
 `docker compose logs recomendacao`.
 
 </details>
+
+<details>
+<summary>🎞️ Erros de gravação</summary>
+
+Tudo aqui aconteceu de verdade durante as filmagens da ATVIII. Nenhum teste foi dublado.
+
+- **Tomada 1:** o LinkedIn saiu de cena, mas seus perfis ficaram no set, se passando por cadastro interno. O teste de troca de provedor reconheceu os impostores.
+- **Tomada 2:** `Projeto` tentou validar a si mesmo com um `validarEstrutura`. O teste do Visitor, veterano da ATVI, barrou a cena, e a fala foi para o `ValidadorEstrutura`.
+- **Tomada 3:** um teste enviou 5 mil pacotes aninhados para derrubar a API e derrubou a si mesmo. O `JSON.stringify` do figurante estourou a pilha antes de a API entrar em cena.
+- **Tomada 4:** o `AdaptadorLocal` gritou o erro fora da `Promise`, e a equipe que esperava a rejeição ficou sem a deixa.
+- **Tomada 5:** o teste de carga marcou 3,0 s porque a direção resolveu compilar o projeto e rodar a demonstração no meio da filmagem. Refeita com o set em silêncio e 8 processos: 1,84 s.
+- **Tomada 6:** a comparação com a ATVII terminou antes do "ação!". O `mklink` não entendeu as aspas do Git Bash, e o elenco da versão anterior nem chegou ao set.
+
+</details>
