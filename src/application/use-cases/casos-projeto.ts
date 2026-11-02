@@ -5,6 +5,8 @@ import type {
   ResultadoReavaliacao,
 } from '../../domain/entidades/projeto.js';
 import { RequisitoPapel } from '../../domain/entidades/requisito-papel.js';
+import { servicoDeDados } from '../../domain/entidades/servicos/pacote-servico.js';
+import type { DadosServico } from '../../domain/entidades/servicos/servico-projeto.js';
 import type { Papel } from '../../domain/enums/papel.js';
 import { criarEvento } from '../../domain/eventos/evento-recomendacao.js';
 import { Localizacao, type DadosLocalizacao } from '../../domain/value-objects/localizacao.js';
@@ -15,6 +17,7 @@ import {
 } from '../eventos/fabrica-eventos.js';
 import { comNovasTentativas } from '../erros/erro-aplicacao.js';
 import type { ResultadoOrquestracao } from '../orchestration/orquestrador-equipe.js';
+import type { NomeDecorador } from '../strategies/decoradores/montador-decoradores.js';
 import {
   resolverParametros,
   type ParametrosRecomendacaoParciais,
@@ -28,6 +31,7 @@ import {
 export interface OpcoesRodada {
   readonly estrategia?: string;
   readonly parametros?: ParametrosRecomendacaoParciais;
+  readonly decoradores?: readonly NomeDecorador[];
 }
 
 export interface ResultadoRodada {
@@ -43,13 +47,17 @@ export class GerarRodadaRecomendacao {
     opcoes: OpcoesRodada,
     contexto: ContextoRequisicao,
   ): Promise<ResultadoRodada> {
-    const { sistema, projetos, recomendacoes, convites } = this.deps;
+    const { sistema, projetos, recomendacoes, convites, decoradores } = this.deps;
     const parametros = opcoes.parametros
       ? resolverParametros(opcoes.parametros)
       : this.deps.parametros;
+    const estrategia = decoradores.paraProjeto(projeto, {
+      ...(opcoes.estrategia ? { estrategia: opcoes.estrategia } : {}),
+      ...(opcoes.decoradores ? { decoradores: opcoes.decoradores } : {}),
+    });
 
     const resultado = await sistema.recomendar(projeto, {
-      ...(opcoes.estrategia ? { estrategia: opcoes.estrategia } : {}),
+      ...(estrategia ? { estrategia } : {}),
       parametros,
     });
     projeto.definirEstrategia(resultado.estrategia);
@@ -90,10 +98,28 @@ export interface DadosNovoProjeto {
   readonly dataInicio: Date;
   readonly dataEntrega: Date;
   readonly localizacao: DadosLocalizacao;
-  readonly requisitos: readonly { papel: Papel; peso: number }[];
+  readonly requisitos?: readonly { papel: Papel; peso: number }[];
+  readonly servicoPrincipal?: DadosServico;
   readonly detalhes?: DetalhesProjeto;
   readonly estrategia?: string;
   readonly parametros?: ParametrosRecomendacaoParciais;
+  readonly decoradores?: readonly NomeDecorador[];
+}
+
+function composicaoDe(dados: {
+  readonly requisitos?: readonly { papel: Papel; peso: number }[];
+  readonly servicoPrincipal?: DadosServico;
+}) {
+  return {
+    ...(dados.requisitos
+      ? {
+          requisitos: dados.requisitos.map((requisito) =>
+            RequisitoPapel.criar(requisito.papel, requisito.peso),
+          ),
+        }
+      : {}),
+    ...(dados.servicoPrincipal ? { servicoPrincipal: servicoDeDados(dados.servicoPrincipal) } : {}),
+  };
 }
 
 export class CriarProjetoERecomendar {
@@ -114,9 +140,7 @@ export class CriarProjetoERecomendar {
       dataInicio: dados.dataInicio,
       dataEntrega: dados.dataEntrega,
       localizacao: Localizacao.criar(dados.localizacao),
-      requisitos: dados.requisitos.map((requisito) =>
-        RequisitoPapel.criar(requisito.papel, requisito.peso),
-      ),
+      ...composicaoDe(dados),
       detalhes: dados.detalhes ?? {},
       estrategia:
         dados.estrategia ?? sistema.estrategiaSugerida(dados.tipoCaptacao, dados.orcamento),
@@ -124,7 +148,10 @@ export class CriarProjetoERecomendar {
     });
     return this.gerarRodada.executar(
       projeto,
-      dados.parametros ? { parametros: dados.parametros } : {},
+      {
+        ...(dados.parametros ? { parametros: dados.parametros } : {}),
+        ...(dados.decoradores ? { decoradores: dados.decoradores } : {}),
+      },
       contexto,
     );
   }
@@ -141,9 +168,11 @@ export interface DadosProjetoDeModelo {
   readonly orcamento?: number;
   readonly localizacao?: DadosLocalizacao;
   readonly requisitos?: readonly { papel: Papel; peso: number }[];
+  readonly servicoPrincipal?: DadosServico;
   readonly detalhes?: DetalhesProjeto;
   readonly estrategia?: string;
   readonly parametros?: ParametrosRecomendacaoParciais;
+  readonly decoradores?: readonly NomeDecorador[];
 }
 
 export class CriarProjetoDeModelo {
@@ -169,13 +198,7 @@ export class CriarProjetoDeModelo {
       ...(dados.localizacao === undefined
         ? {}
         : { localizacao: Localizacao.criar(dados.localizacao) }),
-      ...(dados.requisitos === undefined
-        ? {}
-        : {
-            requisitos: dados.requisitos.map((requisito) =>
-              RequisitoPapel.criar(requisito.papel, requisito.peso),
-            ),
-          }),
+      ...composicaoDe(dados),
       ...(dados.detalhes === undefined ? {} : { detalhes: dados.detalhes }),
     };
     const projeto = modelos.clonar(dados.modeloId, ajustes);
@@ -185,6 +208,7 @@ export class CriarProjetoDeModelo {
         estrategia:
           dados.estrategia ?? sistema.estrategiaSugerida(projeto.tipoCaptacao, projeto.orcamento),
         ...(dados.parametros ? { parametros: dados.parametros } : {}),
+        ...(dados.decoradores ? { decoradores: dados.decoradores } : {}),
       },
       contexto,
     );

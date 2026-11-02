@@ -1,10 +1,16 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import Type, { type Static } from 'typebox';
 import Value from 'typebox/value';
+import type { NomeDecorador } from '../application/strategies/decoradores/montador-decoradores.js';
 
 const AMBIENTES = ['development', 'test', 'production'] as const;
 const NIVEIS_LOG = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
+const PROVEDORES_ARMAZENAMENTO = ['s3', 'google-cloud', 'local'] as const;
+const PROVEDORES_PAGAMENTO = ['stripe', 'pagseguro', 'paypal'] as const;
+const PROVEDORES_PROFISSIONAL = ['interno', 'linkedin', 'indeed'] as const;
+const DECORADOR = '(cache|auditoria|compressao)';
 
 const EsquemaAmbiente = Type.Object({
   NODE_ENV: Type.Enum(AMBIENTES, { default: 'development' }),
@@ -24,11 +30,28 @@ const EsquemaAmbiente = Type.Object({
   CIRCUITO_LIMITE_FALHAS: Type.Integer({ minimum: 1, maximum: 100, default: 3 }),
   CIRCUITO_ESPERA_MS: Type.Integer({ minimum: 100, maximum: 3_600_000, default: 10_000 }),
   CONVITES_VARREDURA_MS: Type.Integer({ minimum: 1_000, maximum: 86_400_000, default: 60_000 }),
+  ARMAZENAMENTO_PROVEDOR: Type.Enum(PROVEDORES_ARMAZENAMENTO, { default: 's3' }),
+  ARMAZENAMENTO_LOCAL_DIR: Type.String({
+    minLength: 1,
+    default: join(tmpdir(), 'cinebridge-arquivos'),
+  }),
+  PAGAMENTO_PROVEDOR: Type.Enum(PROVEDORES_PAGAMENTO, { default: 'stripe' }),
+  PROFISSIONAIS_PROVEDOR: Type.Enum(PROVEDORES_PROFISSIONAL, { default: 'interno' }),
+  DECORADORES: Type.String({ pattern: `^(${DECORADOR}(,${DECORADOR})*)?$`, default: '' }),
+  CACHE_RECOMENDACOES_TTL_MS: Type.Integer({
+    minimum: 1_000,
+    maximum: 86_400_000,
+    default: 60_000,
+  }),
+  CACHE_RECOMENDACOES_MAXIMO: Type.Integer({ minimum: 1, maximum: 100_000, default: 500 }),
 });
 
 type Ambiente = Static<typeof EsquemaAmbiente>;
 
 export type NivelLog = (typeof NIVEIS_LOG)[number];
+export type ProvedorArmazenamento = (typeof PROVEDORES_ARMAZENAMENTO)[number];
+export type ProvedorPagamento = (typeof PROVEDORES_PAGAMENTO)[number];
+export type ProvedorProfissional = (typeof PROVEDORES_PROFISSIONAL)[number];
 
 export interface ConfigBanco {
   host: string;
@@ -48,6 +71,19 @@ export interface ConfigResiliencia {
   circuitoEsperaMs: number;
 }
 
+export interface ConfigIntegracoes {
+  armazenamento: ProvedorArmazenamento;
+  diretorioLocal: string;
+  pagamento: ProvedorPagamento;
+  profissionais: ProvedorProfissional;
+}
+
+export interface ConfigRecomendacao {
+  decoradores: NomeDecorador[];
+  cacheTtlMs: number;
+  cacheMaximo: number;
+}
+
 export interface Config {
   ambiente: (typeof AMBIENTES)[number];
   servidor: { host: string; porta: number };
@@ -55,6 +91,8 @@ export interface Config {
   banco: ConfigBanco;
   resiliencia: ConfigResiliencia;
   convites: { varreduraMs: number };
+  integracoes: ConfigIntegracoes;
+  recomendacao: ConfigRecomendacao;
 }
 
 export class ErroConfiguracao extends Error {
@@ -113,5 +151,16 @@ function mapearConfig(ambiente: Ambiente): Config {
       circuitoEsperaMs: ambiente.CIRCUITO_ESPERA_MS,
     },
     convites: { varreduraMs: ambiente.CONVITES_VARREDURA_MS },
+    integracoes: {
+      armazenamento: ambiente.ARMAZENAMENTO_PROVEDOR,
+      diretorioLocal: ambiente.ARMAZENAMENTO_LOCAL_DIR,
+      pagamento: ambiente.PAGAMENTO_PROVEDOR,
+      profissionais: ambiente.PROFISSIONAIS_PROVEDOR,
+    },
+    recomendacao: {
+      decoradores: ambiente.DECORADORES.split(',').filter(Boolean) as NomeDecorador[],
+      cacheTtlMs: ambiente.CACHE_RECOMENDACOES_TTL_MS,
+      cacheMaximo: ambiente.CACHE_RECOMENDACOES_MAXIMO,
+    },
   };
 }

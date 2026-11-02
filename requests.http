@@ -158,3 +158,76 @@ Content-Type: application/json
 
 ### ATVII-7. Mensagens que o notificador do tipo enviou à agência
 GET {{base}}/mensagens/agencia-1
+
+### ATVIII-1. Composite: projeto com pacotes aninhados; custo, prazo e papéis vêm da árvore
+# @name projetoServicos
+POST {{base}}/projetos
+Content-Type: application/json
+
+{
+  "titulo": "Vozes do Sertão - pacote completo",
+  "produtorId": "produtor-3",
+  "genero": "drama",
+  "tipoCaptacao": "FICCAO",
+  "duracaoMinutos": 95,
+  "orcamento": 280000,
+  "dataInicio": "2027-03-01T00:00:00.000Z",
+  "dataEntrega": "2027-06-30T00:00:00.000Z",
+  "localizacao": { "cidade": "São Paulo", "uf": "SP", "latitude": -23.5505, "longitude": -46.6333 },
+  "servicoPrincipal": {
+    "nome": "Produção completa",
+    "subservicos": [
+      { "nome": "Direção", "papel": "DIRETOR", "custo": 40000, "prazoDias": 30, "peso": 10 },
+      {
+        "nome": "Pós-produção",
+        "subservicos": [
+          { "nome": "Edição", "papel": "EDITOR", "custo": 20000, "prazoDias": 20, "peso": 6 },
+          { "nome": "Coloração", "papel": "EDITOR", "custo": 8000, "prazoDias": 5, "peso": 4 },
+          { "nome": "Mixagem de áudio", "papel": "SONOPLASTA", "custo": 10000, "prazoDias": 10, "peso": 5 }
+        ]
+      }
+    ]
+  }
+}
+
+### ATVIII-2. Composite: custo dos serviços acima do orçamento (422)
+POST {{base}}/projetos
+Content-Type: application/json
+
+{
+  "titulo": "Sem verba",
+  "produtorId": "produtor-3",
+  "genero": "drama",
+  "tipoCaptacao": "FICCAO",
+  "duracaoMinutos": 95,
+  "orcamento": 5000,
+  "dataInicio": "2027-03-01T00:00:00.000Z",
+  "dataEntrega": "2027-06-30T00:00:00.000Z",
+  "localizacao": { "cidade": "São Paulo", "uf": "SP", "latitude": -23.5505, "longitude": -46.6333 },
+  "servicoPrincipal": { "nome": "Direção", "papel": "DIRETOR", "custo": 40000, "prazoDias": 30 }
+}
+
+### ATVIII-3. Adapter: anexa um arquivo no provedor configurado (conteúdo em base64)
+# @name arquivo
+POST {{base}}/projetos/{{projetoServicos.response.body.projeto.id}}/arquivos
+Content-Type: application/json
+
+{ "nome": "roteiro.txt", "tipoConteudo": "text/plain", "conteudoBase64": "Q2VuYSAx" }
+
+### ATVIII-4. Adapter: lista os arquivos do projeto
+GET {{base}}/projetos/{{projetoServicos.response.body.projeto.id}}/arquivos
+
+### ATVIII-5. Adapter: recupera o conteúdo do arquivo
+GET {{base}}/projetos/{{projetoServicos.response.body.projeto.id}}/arquivos/conteudo?id={{arquivo.response.body.id}}
+
+### ATVIII-6. Adapter: pagamento só com equipe formada; aqui a equipe ainda é uma sugestão (409)
+POST {{base}}/projetos/{{projetoServicos.response.body.projeto.id}}/equipes/{{projetoServicos.response.body.projeto.equipes[0].id}}/membros/DIRETOR/pagamento
+
+### ATVIII-7. Decorator: nova rodada escolhendo a pilha e a ordem por requisição
+POST {{base}}/projetos/{{projetoServicos.response.body.projeto.id}}/recomendacoes
+Content-Type: application/json
+
+{ "estrategia": "filtragem-colaborativa", "decoradores": ["cache", "auditoria", "compressao"] }
+
+### ATVIII-8. Decorator: a chamada aparece na auditoria como RECOMENDADOR_EXECUTADO
+GET {{base}}/projetos/{{projetoServicos.response.body.projeto.id}}/auditoria

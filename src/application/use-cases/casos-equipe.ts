@@ -6,6 +6,7 @@ import { criarEvento, type EventoRecomendacao } from '../../domain/eventos/event
 import { comNovasTentativas, naoEncontrado } from '../erros/erro-aplicacao.js';
 import { ORIGEM_SERVICO, eventoRecomendacaoGerada } from '../eventos/fabrica-eventos.js';
 import type { ResultadoOrquestracao } from '../orchestration/orquestrador-equipe.js';
+import type { PedidoEstrategia } from '../strategies/decoradores/montador-decoradores.js';
 import {
   obterProjeto,
   type ContextoRequisicao,
@@ -121,7 +122,7 @@ export class RejeitarMembro extends CasoDeEquipe {
 export class SubstituirMembro extends CasoDeEquipe {
   executar(
     alvo: AlvoMembro,
-    opcoes: { estrategia?: string },
+    opcoes: PedidoEstrategia,
     contexto: ContextoRequisicao,
   ): Promise<{ projeto: Projeto; resultado: ResultadoOrquestracao }> {
     return comNovasTentativas(() => this.tentar(alvo, opcoes, contexto));
@@ -129,17 +130,18 @@ export class SubstituirMembro extends CasoDeEquipe {
 
   private async tentar(
     alvo: AlvoMembro,
-    opcoes: { estrategia?: string },
+    opcoes: PedidoEstrategia,
     contexto: ContextoRequisicao,
   ): Promise<{ projeto: Projeto; resultado: ResultadoOrquestracao }> {
-    const { projetos, sistema, recomendacoes } = this.deps;
+    const { projetos, sistema, recomendacoes, decoradores } = this.deps;
     const projeto = await obterProjeto(projetos, alvo.projetoId);
     const anterior = projeto.equipe(alvo.equipeId).membro(alvo.papel);
+    const estrategia = decoradores.paraProjeto(projeto, opcoes);
 
     const resultado = await sistema.substituir(
       projeto,
       { equipeId: alvo.equipeId, papel: alvo.papel },
-      opcoes.estrategia ? { estrategia: opcoes.estrategia } : {},
+      estrategia ? { estrategia } : {},
     );
     await projetos.salvar(projeto);
     await this.cancelarConvitePendente(alvo.equipeId, alvo.papel);

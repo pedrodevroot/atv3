@@ -84,6 +84,30 @@ export interface DadosPorTipoEvento {
     custoTotal: number;
     membros: { papel: Papel; profissionalId: string; custo: number }[];
   };
+  ARQUIVO_ANEXADO: {
+    projetoId: string;
+    produtorId: string;
+    arquivoId: string;
+    nome: string;
+    provedor: string;
+    tamanhoBytes: number;
+  };
+  PAGAMENTO_EFETUADO: {
+    projetoId: string;
+    produtorId: string;
+    pagamentoId: string;
+    equipeId: string;
+    papel: Papel;
+    profissionalId: string;
+    valor: number;
+    provedor: string;
+  };
+  PAGAMENTO_CANCELADO: {
+    projetoId: string;
+    produtorId: string;
+    pagamentoId: string;
+    provedor: string;
+  };
 }
 
 export type TipoEvento = keyof DadosPorTipoEvento;
@@ -100,6 +124,9 @@ export const TIPOS_EVENTO = [
   'REAVALIACAO_SOLICITADA',
   'DETALHES_ATUALIZADOS',
   'EQUIPE_FORMADA',
+  'ARQUIVO_ANEXADO',
+  'PAGAMENTO_EFETUADO',
+  'PAGAMENTO_CANCELADO',
 ] as const satisfies readonly TipoEvento[];
 
 export type EventoDoTipo<T extends TipoEvento> = {

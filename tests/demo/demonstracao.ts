@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   eventoRecomendacaoGerada,
   membrosSugeridos,
@@ -13,19 +16,34 @@ import type { RepositorioProfissionais } from '../../src/application/ports/repos
 import { CatalogoModelos } from '../../src/application/prototipos/catalogo-modelos.js';
 import { criarModelosPadrao } from '../../src/application/prototipos/modelos-padrao.js';
 import { SistemaRecomendacao } from '../../src/application/sistema-recomendacao.js';
+import { CacheRecomendacoes } from '../../src/application/strategies/decoradores/cache-decorator.js';
+import type { RankingComprimido } from '../../src/application/strategies/decoradores/compressao-decorator.js';
+import { MontadorDecoradores } from '../../src/application/strategies/decoradores/montador-decoradores.js';
 import { resolverParametros } from '../../src/application/strategies/parametros-recomendacao.js';
 import { CalculadorCompatibilidade } from '../../src/application/visitors/calculador-compatibilidade.js';
 import { GeradorRelatorio } from '../../src/application/visitors/gerador-relatorio.js';
 import { ValidadorConsistencia } from '../../src/application/visitors/validador-consistencia.js';
 import { criarCanaisSaida, criarRegistroEstrategias } from '../../src/container.js';
+import { ProjetoFiccao } from '../../src/domain/entidades/projetos/projeto-ficcao.js';
 import { RequisitoPapel } from '../../src/domain/entidades/requisito-papel.js';
-import { Papel } from '../../src/domain/enums/papel.js';
+import { PacoteServico } from '../../src/domain/entidades/servicos/pacote-servico.js';
+import { ServicoAtomico } from '../../src/domain/entidades/servicos/servico-atomico.js';
+import type { ServicoProjeto } from '../../src/domain/entidades/servicos/servico-projeto.js';
+import { PAPEIS, Papel } from '../../src/domain/enums/papel.js';
 import { TIPOS_CAPTACAO, TipoCaptacao } from '../../src/domain/enums/tipo-captacao.js';
 import { criarEvento } from '../../src/domain/eventos/evento-recomendacao.js';
+import {
+  criarAdaptadorArmazenamento,
+  criarAdaptadorPagamento,
+  criarAdaptadorProfissional,
+} from '../../src/infrastructure/adaptadores/criar-adaptadores.js';
 import { BarramentoEventosEmMemoria } from '../../src/infrastructure/messaging/barramento-eventos-memoria.js';
 import { CaixaMensagensMemoria } from '../../src/infrastructure/notifications/canais-simulados.js';
 import { RepositorioProfissionaisMemoria } from '../../src/infrastructure/repositories/repositorio-profissionais-memoria.js';
+import { corpoProjetoDemonstracao, criarCasosMemoria } from '../fixtures/api.js';
 import { criarArvoreProjeto, fotografar } from '../fixtures/arvore-projeto.js';
+import { gerarCadastroSintetico } from '../fixtures/cadastro-sintetico.js';
+import { semRequisitos } from '../fixtures/servicos.js';
 import {
   criarCadastroDemonstracao,
   criarProjetoDemonstracao,
@@ -356,6 +374,180 @@ async function demonstrarAbstractFactory() {
   );
 }
 
+async function demonstrarAdapter() {
+  titulo('8. ADAPTER: trocar o provedor sem tocar na lógica de negócio');
+  const { casos, sistema, deposito, livro, profissionais } = criarCasosMemoria();
+  const { projeto } = await casos.criarProjeto.executar(
+    {
+      ...corpoProjetoDemonstracao(),
+      dataInicio: new Date('2026-10-01T00:00:00.000Z'),
+      dataEntrega: new Date('2026-12-30T00:00:00.000Z'),
+      requisitos: [{ papel: Papel.DIRETOR, peso: 5 }],
+      tipoCaptacao: TipoCaptacao.FICCAO,
+    },
+    {},
+  );
+  const diretorioLocal = mkdtempSync(join(tmpdir(), 'cinebridge-demo-'));
+
+  passo('O mesmo caso de uso, AnexarArquivo, com três provedores de armazenamento:');
+  for (const provedor of ['s3', 'google-cloud', 'local'] as const) {
+    sistema.configurarAdaptadores(
+      criarAdaptadorArmazenamento(provedor, deposito, diretorioLocal),
+      sistema.pagamento,
+      sistema.profissional,
+    );
+    const id = await casos.arquivos.anexar(
+      {
+        projetoId: projeto.id,
+        nome: 'roteiro.txt',
+        tipoConteudo: 'text/plain',
+        conteudo: Buffer.from('Cena 1'),
+      },
+      {},
+    );
+    const conteudo = await casos.arquivos.recuperar(projeto.id, id);
+    console.info(`${provedor.padEnd(13)} ${id} -> "${conteudo.toString()}"`);
+  }
+  rmSync(diretorioLocal, { recursive: true, force: true });
+
+  passo('O mesmo pagamento de R$ 1.234,56: cada gateway recebe o valor no formato dele:');
+  console.table(
+    await Promise.all(
+      (
+        [
+          ['stripe', 'stripe'],
+          ['pagseguro', 'pagseguro'],
+          ['paypal', 'paypal'],
+        ] as const
+      ).map(async ([provedor, sistemaExterno]) => {
+        const adaptador = criarAdaptadorPagamento(provedor, livro);
+        const id = await adaptador.efetuarPagamento(1_234.56, 'produtor-1', 'profissional-1');
+        const transacao = await livro.obter(sistemaExterno, id);
+        return {
+          provedor,
+          id: `${id.slice(0, 12)}...`,
+          valorNoGateway: transacao?.valor,
+          statusNoGateway: transacao?.status,
+          statusPadronizado: await adaptador.verificarPagamento(id),
+        };
+      }),
+    ),
+  );
+
+  passo('Cadastros de profissionais diferentes viram o mesmo Profissional do domínio:');
+  for (const provedor of ['interno', 'linkedin', 'indeed'] as const) {
+    const adaptador = criarAdaptadorProfissional(provedor, profissionais);
+    const encontrados = await adaptador.listarProfissionais({ papeis: [Papel.DIRETOR] });
+    console.info(
+      `${provedor.padEnd(9)} ${encontrados.map((profissional) => profissional.nome).join(', ')}`,
+    );
+  }
+}
+
+async function demonstrarComposite() {
+  titulo('9. COMPOSITE: serviço atômico e pacote respondem pela mesma interface');
+  const servico = (nome: string, papel: Papel, custo: number, prazoDias: number, peso = 1) =>
+    ServicoAtomico.criar({ nome, papel, custo, prazoDias, peso });
+  const posProducao = PacoteServico.criar('Pós-produção', [
+    PacoteServico.criar('Imagem', [
+      servico('Edição', Papel.EDITOR, 9_000, 10, 4),
+      servico('Coloração', Papel.EDITOR, 4_000, 4, 2),
+    ]),
+    servico('Mixagem de áudio', Papel.SONOPLASTA, 3_000, 5, 3),
+  ]);
+  const principal = PacoteServico.criar('Produção completa', [
+    servico('Direção', Papel.DIRETOR, 20_000, 15, 5),
+    posProducao,
+  ]);
+
+  const imprimir = (no: ServicoProjeto, nivel = 0): void => {
+    console.info(
+      `${'  '.repeat(nivel)}${no.nome}: R$ ${no.calcularCusto()}, ${no.obterPrazo()} dias`,
+    );
+    for (const filho of no.listarSubservicos()) {
+      imprimir(filho, nivel + 1);
+    }
+  };
+  imprimir(principal);
+
+  passo('Projeto.calcularCustoTotal delega ao serviço principal; os papéis vêm da árvore:');
+  const projeto = ProjetoFiccao.criar({
+    ...semRequisitos(dadosProjetoBase()),
+    servicoPrincipal: principal,
+  });
+  console.info(`Custo total: R$ ${projeto.calcularCustoTotal()}.`);
+  console.info(
+    `Papéis: ${projeto.requisitos.map(({ papel, peso }) => `${papel} (peso ${peso})`).join(', ')}.`,
+  );
+
+  passo('A validação desce a árvore até o serviço inválido:');
+  const invalido = PacoteServico.criar('Pacote', [
+    PacoteServico.criar('Subpacote', [
+      ServicoAtomico.criar({
+        nome: 'Maquiagem',
+        papel: 'MAQUIADOR' as Papel,
+        custo: 1,
+        prazoDias: 1,
+      }),
+    ]),
+  ]);
+  console.info(invalido.validar().join(' '));
+  await Promise.resolve();
+}
+
+async function demonstrarDecorator() {
+  titulo('10. DECORATOR: cache, auditoria e compressão sem alterar o recomendador');
+  const estrategias = criarRegistroEstrategias();
+  const caixa = new CaixaMensagensMemoria();
+  const cache = new CacheRecomendacoes({ ttlMs: 60_000, maximo: 100 });
+  const canais = criarCanaisSaida();
+  const montador = new MontadorDecoradores({
+    cache,
+    auditoria: canais.auditoria,
+    fabricas: criarFabricas(caixa),
+    estrategias,
+  });
+  const base = estrategias.obter('similaridade-cosseno');
+  const cadastro = gerarCadastroSintetico(10_000);
+  const parametros = resolverParametros();
+  const projeto = criarProjeto({
+    orcamento: 400_000,
+    requisitos: PAPEIS.map((papel, indice) => RequisitoPapel.criar(papel, indice + 1)),
+  });
+  const medir = (estrategia: { recomendar: typeof base.recomendar }) => {
+    const inicio = performance.now();
+    const ranking = estrategia.recomendar(projeto, cadastro, parametros);
+    return { ranking, ms: Math.round((performance.now() - inicio) * 100) / 100 };
+  };
+
+  passo('Cache: a mesma requisição, com 10 mil profissionais:');
+  const comCache = montador.montar(base, ['cache']);
+  console.info(`1ª chamada: ${medir(comCache).ms} ms; 2ª chamada: ${medir(comCache).ms} ms.`);
+
+  passo('Compressão: o ranking fica menor e continua igual ao original:');
+  const comprimido = montador
+    .montar(base, ['compressao'])
+    .recomendar(projeto, cadastro, parametros) as RankingComprimido;
+  console.info(`${comprimido.tamanhoOriginal} bytes -> ${comprimido.tamanhoComprimido} bytes.`);
+
+  passo('A ordem é definida em tempo de execução, com os mesmos decoradores:');
+  const ordens = [
+    ['cache', 'auditoria', 'compressao'],
+    ['auditoria', 'cache', 'compressao'],
+  ] as const;
+  for (const ordem of ordens) {
+    cache.limpar();
+    const antes = canais.auditoria.entradas.total;
+    const decorado = montador.montar(base, ordem);
+    decorado.recomendar(projeto, cadastro, parametros);
+    decorado.recomendar(projeto, cadastro, parametros);
+    console.info(
+      `${ordem.join(' -> ')}: duas chamadas, ${canais.auditoria.entradas.total - antes} registro(s) de auditoria; nome continua "${decorado.nome}".`,
+    );
+  }
+  await Promise.resolve();
+}
+
 await demonstrarStrategy();
 await demonstrarTemplateMethod();
 await demonstrarObserver();
@@ -363,4 +555,7 @@ await demonstrarVisitor();
 await demonstrarPrototype();
 await demonstrarFactoryMethod();
 await demonstrarAbstractFactory();
+await demonstrarAdapter();
+await demonstrarComposite();
+await demonstrarDecorator();
 console.info('\nDemonstração concluída.');

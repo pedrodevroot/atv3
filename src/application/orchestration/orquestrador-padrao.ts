@@ -4,6 +4,7 @@ import type { Profissional } from '../../domain/entidades/profissional.js';
 import type { Papel } from '../../domain/enums/papel.js';
 import type { CriteriosBusca } from '../ports/repositorio-profissionais.js';
 import type { CandidatoRanqueado, RankingPorPapel } from '../strategies/estrategia-recomendacao.js';
+import { ValidadorEstrutura } from '../visitors/validador-estrutura.js';
 import {
   OrquestradorEquipe,
   type EntradaOrquestracao,
@@ -27,6 +28,10 @@ export class OrquestradorPadrao extends OrquestradorEquipe {
       this.violacao(
         `Orçamento de ${projeto.orcamento} é insuficiente para ${projeto.papeisObrigatorios.length} papéis (mínimo ${minimoNecessario}).`,
       );
+    }
+    const estrutura = projeto.aceitar(new ValidadorEstrutura());
+    if (!estrutura.valido) {
+      this.violacao(estrutura.problemas.map((problema) => problema.mensagem).join(' '));
     }
   }
 

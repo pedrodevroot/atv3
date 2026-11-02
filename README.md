@@ -10,12 +10,13 @@ Primeiro microsserviço da plataforma **CineBridge** — os próximos (gerenciam
 projetos, financeiro) serão containers independentes na mesma rede Docker e no
 mesmo PostgreSQL, cada um com seu próprio banco.
 
-**Atividades ATVI e ATVII** — Técnicas de Programação — Prof. Dr. Eng. Gerson Penha
+**Atividades ATVI, ATVII e ATVIII** — Técnicas de Programação — Prof. Dr. Eng. Gerson Penha
 
-| Atividade | O que entrega                                                                                                                                                     |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **ATVI**  | O microsserviço com **Strategy**, **Template Method**, **Observer** e **Visitor**                                                                                 |
-| **ATVII** | Análise crítica do código da ATVI ([docs/analise-critica.md](docs/analise-critica.md)) e refatoração com **Prototype**, **Factory Method** e **Abstract Factory** |
+| Atividade  | O que entrega                                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ATVI**   | O microsserviço com **Strategy**, **Template Method**, **Observer** e **Visitor**                                                                                 |
+| **ATVII**  | Análise crítica do código da ATVI ([docs/analise-critica.md](docs/analise-critica.md)) e refatoração com **Prototype**, **Factory Method** e **Abstract Factory** |
+| **ATVIII** | Análise de anti-padrões ([docs/analise-antipadroes.md](docs/analise-antipadroes.md)) e extensão com **Adapter**, **Composite** e **Decorator**                    |
 
 ---
 
@@ -62,13 +63,19 @@ comando `npm run`.
 ## Como executar
 
 ```bash
-git clone https://github.com/pedrodevroot/atv2.git
-cd atv2
+git clone https://github.com/pedrodevroot/atv3.git
+cd atv3
 docker compose up -d --build --wait
 ```
 
 Nada para configurar: usuário, senha e nome do banco têm valor padrão no
-`docker-compose.yml`. O mesmo comando funciona no Windows (PowerShell) e no Ubuntu.
+`docker-compose.yml`. O mesmo comando funciona no Windows 10+ (PowerShell), no Ubuntu 24.04.3+ e em
+distribuições derivadas do Ubuntu.
+
+> A stack usa os mesmos nomes de containers e de volume (`cinebridge-*`) das atividades anteriores.
+> Se a ATVII estiver no ar nesta máquina, o comando substitui os containers dela e aplica as migrações
+> novas no mesmo banco. Para manter as duas, pare a anterior e apague o volume antes
+> (`docker compose down -v` na pasta dela), ou faça backup se os dados importarem.
 
 |                                   | Endereço                                                                      |
 | --------------------------------- | ----------------------------------------------------------------------------- |
@@ -102,7 +109,7 @@ curl http://localhost:3000/health      # no PowerShell use curl.exe
   campos e o corpo e clique em **Execute**. Os ids (`projetoId`, `equipeId`, `conviteId`) vêm nas
   respostas e são usados nas rotas seguintes.
 - **[requests.http](requests.http)** (extensão REST Client do VS Code): o fluxo inteiro, na ordem,
-  incluindo os exemplos da ATVII.
+  incluindo os exemplos da ATVII e da ATVIII.
 
 Os corpos prontos para copiar estão em [Endpoints](#endpoints). As datas dos projetos precisam
 estar no futuro: a entrega não pode ter passado.
@@ -126,7 +133,7 @@ npm run dev                # http://localhost:3000, recarrega ao salvar
 
 ---
 
-## Os sete padrões de projeto
+## Os dez padrões de projeto
 
 Precisa do **Node.js 22.12+**; não precisa de Docker nem de banco.
 
@@ -135,23 +142,28 @@ npm ci
 npm run demo
 ```
 
-Imprime as sete demonstrações: as quatro da ATVI e as três da ATVII.
+Imprime as dez demonstrações: as quatro da ATVI, as três da ATVII e as três da ATVIII.
 
-| Padrão               | Onde está                                                  | O que a demonstração prova                                                                                                                                           | Teste                                   |
-| -------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| **Strategy**         | `src/application/strategies`                               | Mesmo projeto e mesmo cadastro: cosseno escolhe Helena Técnica, colaborativa escolhe Marta Consagrada, regras de orçamento escolhem Caio Local                       | `demonstracao-strategy.test.ts`         |
-| **Template Method**  | `src/application/orchestration`                            | `OrquestradorPadrao` e `OrquestradorSubstituicao` executam as mesmas 7 etapas; falha na validação interrompe antes de buscar; sobrescrever `orquestrar()` é recusado | `demonstracao-template-method.test.ts`  |
-| **Observer**         | `src/application/observers` + `infrastructure/messaging`   | Um observador falha e e-mail, mensagem interna, auditoria e integração continuam; entrega assíncrona; observador lento não atrasa os demais                          | `demonstracao-observer.test.ts`         |
-| **Visitor**          | `src/application/visitors`                                 | Validação, compatibilidade e relatório sobre a mesma árvore; a árvore não muda; um visitante novo não exige alterar o domínio                                        | `demonstracao-visitor.test.ts`          |
-| **Prototype**        | `src/domain/entidades/projetos` + `application/prototipos` | `clonar()` em cada subclasse de `Projeto` faz cópia profunda; modelos pré-configurados são clonados e ajustados; mexer no clone não altera o protótipo               | `demonstracao-prototype.test.ts`        |
-| **Factory Method**   | `src/application/familias/*/fabrica-*.ts`                  | `criarProjeto`, `criarValidador`, `criarRecomendador` e `criarNotificador` são abstratos em `FabricaProjeto`; cada subclasse decide a classe concreta                | `demonstracao-abstract-factory.test.ts` |
-| **Abstract Factory** | `src/application/familias` + `sistema-recomendacao.ts`     | Mesmo cadastro e mesmos papéis: trocar a fábrica troca recomendação, validação e notificação; um tipo novo entra só com uma fábrica nova                             | `fabricas-projeto.test.ts` (integração) |
+| Padrão               | Onde está                                                      | O que a demonstração prova                                                                                                                                           | Teste                                   |
+| -------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Strategy**         | `src/application/strategies`                                   | Mesmo projeto e mesmo cadastro: cosseno escolhe Helena Técnica, colaborativa escolhe Marta Consagrada, regras de orçamento escolhem Caio Local                       | `demonstracao-strategy.test.ts`         |
+| **Template Method**  | `src/application/orchestration`                                | `OrquestradorPadrao` e `OrquestradorSubstituicao` executam as mesmas 7 etapas; falha na validação interrompe antes de buscar; sobrescrever `orquestrar()` é recusado | `demonstracao-template-method.test.ts`  |
+| **Observer**         | `src/application/observers` + `infrastructure/messaging`       | Um observador falha e e-mail, mensagem interna, auditoria e integração continuam; entrega assíncrona; observador lento não atrasa os demais                          | `demonstracao-observer.test.ts`         |
+| **Visitor**          | `src/application/visitors`                                     | Validação, compatibilidade e relatório sobre a mesma árvore; a árvore não muda; um visitante novo não exige alterar o domínio                                        | `demonstracao-visitor.test.ts`          |
+| **Prototype**        | `src/domain/entidades/projetos` + `application/prototipos`     | `clonar()` em cada subclasse de `Projeto` faz cópia profunda; modelos pré-configurados são clonados e ajustados; mexer no clone não altera o protótipo               | `demonstracao-prototype.test.ts`        |
+| **Factory Method**   | `src/application/familias/*/fabrica-*.ts`                      | `criarProjeto`, `criarValidador`, `criarRecomendador` e `criarNotificador` são abstratos em `FabricaProjeto`; cada subclasse decide a classe concreta                | `demonstracao-abstract-factory.test.ts` |
+| **Abstract Factory** | `src/application/familias` + `sistema-recomendacao.ts`         | Mesmo cadastro e mesmos papéis: trocar a fábrica troca recomendação, validação e notificação; um tipo novo entra só com uma fábrica nova                             | `fabricas-projeto.test.ts` (integração) |
+| **Adapter**          | `application/ports/adaptador-*` + `infrastructure/adaptadores` | O mesmo caso de uso funciona com 3 armazenamentos, 3 gateways e 3 cadastros; cada adaptador traduz formatos, unidades e status do seu sistema                        | `adapter.test.ts` (integração)          |
+| **Composite**        | `src/domain/entidades/servicos`                                | Serviço atômico e pacote respondem pela mesma interface; custo, prazo e validação descem a árvore; `Projeto` delega ao serviço principal                             | `composite.test.ts` (integração)        |
+| **Decorator**        | `src/application/strategies/decoradores`                       | Cache, auditoria e compressão em qualquer ordem, sem alterar o recomendador nem o `SistemaRecomendacao`; o ranking final é o mesmo do recomendador base              | `decorator.test.ts` (integração)        |
 
 A classe `SistemaRecomendacao` (`src/application/sistema-recomendacao.ts`) reproduz a API dos
-diagramas das atividades — `definirEstrategia`, `executarRecomendacao`, `adicionarObservador` e
-`notificarObservadores` —, unindo Strategy e Observer; desde a ATVII ela também identifica o tipo
-do projeto e escolhe a fábrica (teste `sistema-recomendacao.test.ts`). A interface
-`RecomendacaoStrategy` dos diagramas corresponde a `EstrategiaRecomendacao`.
+diagramas das atividades — `definirEstrategia`, `executarRecomendacao`, `adicionarObservador`,
+`notificarObservadores` e `configurarAdaptadores` —, unindo Strategy, Observer e Adapter; desde a
+ATVII ela também identifica o tipo do projeto e escolhe a fábrica (teste
+`sistema-recomendacao.test.ts`). A interface `RecomendacaoStrategy` dos diagramas é um apelido de
+`EstrategiaRecomendacao`, e `executarRecomendacao` devolve um `ResultadoOrquestracao`, que contém as
+equipes sugeridas.
 
 ---
 
@@ -201,6 +213,82 @@ teste.
 
 ---
 
+## Integrações, serviços e decoradores (ATVIII)
+
+### Adapter: provedores externos
+
+Os sistemas externos são **simulados**: nenhuma chamada sai para a Amazon, o Google, a Stripe, o
+PagSeguro, o PayPal, o LinkedIn ou o Indeed. O provedor é escolhido por variável de ambiente, e
+`SistemaRecomendacao.configurarAdaptadores(armazenamento, pagamento, profissional)` permite trocar
+em tempo de execução.
+
+| Família       | Variável                 | Valores                         | Padrão    | O que o adaptador traduz                                                                       |
+| ------------- | ------------------------ | ------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| Armazenamento | `ARMAZENAMENTO_PROVEDOR` | `s3`, `google-cloud`, `local`   | `s3`      | `Buffer` e metadados para `File` e chave; id com o esquema `s3://`, `gs://` ou `local://`      |
+| Pagamento     | `PAGAMENTO_PROVEDOR`     | `stripe`, `pagseguro`, `paypal` | `stripe`  | Centavos (Stripe) ou reais; códigos de status de cada gateway para `APROVADO` e `CANCELADO`    |
+| Profissionais | `PROFISSIONAIS_PROVEDOR` | `interno`, `linkedin`, `indeed` | `interno` | Formato do perfil, cargos, endossos, salário em centavos e escala de notas para `Profissional` |
+
+Decisões de projeto:
+
+- Tipos próprios, como `MetadadosArquivo`, substituem o `any` do diagrama, que a regra de lint do
+  projeto proíbe. Os adaptadores devolvem `Promise`, como as outras portas.
+- A API roda em vários processos, então os simuladores de arquivos e pagamentos guardam o estado no
+  PostgreSQL (`objeto_externo` e `transacao_externa`). O `local` usa o diretório
+  `ARMAZENAMENTO_LOCAL_DIR`.
+- O `AdaptadorProfissional` fica por baixo do repositório resiliente, então cache e disjuntor
+  continuam valendo. Perfis externos são espelhados na tabela `profissional`, exigida pela chave
+  estrangeira de `membro_equipe`, com ids `linkedin:*` e `indeed:*`. O `AdaptadorInterno` os ignora.
+- Um papel só é pago uma vez por equipe, garantido por índice único. Se duas chamadas simultâneas
+  cobrarem, a segunda é estornada e responde 409.
+- Um pagamento só é consultado ou cancelado no provedor em que foi feito.
+
+### Composite: hierarquia de serviços
+
+`ServicoProjeto` é a interface comum, com `calcularCusto`, `listarSubservicos`, `obterPrazo` e
+`validar`. `ServicoAtomico` é a folha e `PacoteServico` contém outros serviços, atômicos ou pacotes.
+`Projeto.servicoPrincipal` é a fonte dos dados, e `calcularCustoTotal` delega a ele.
+
+Decisões de projeto:
+
+- `POST /projetos` aceita `requisitos`, como antes, ou `servicoPrincipal`, nunca os dois. `requisitos`
+  vira um pacote simples com custo e prazo zerados, porque um papel com peso não tem preço. Assim a
+  ATVI e a ATVII continuam funcionando; os projetos já gravados são convertidos pela migração.
+- `requisitos` e `papeisObrigatorios` agora são derivados da árvore, então estratégias e visitantes
+  não mudaram. Dois serviços podem ter o mesmo papel: a lista derivada traz o papel uma vez, com o
+  maior peso.
+- O prazo de um pacote é a **soma** dos prazos dos filhos, ou seja, considera execução em sequência.
+- `ServicoAtomico` tem `peso` (padrão 1) além do pedido no enunciado, porque o ranking depende dele.
+- O custo acima do orçamento ou o prazo acima do período viram erro antes da recomendação (422) e
+  aparecem no relatório como `ESTRUTURA_SERVICOS`. A árvore aceita até 6 níveis de pacotes, com até
+  50 serviços em cada um.
+
+### Decorator: comportamentos transversais
+
+`RecomendadorBase` guarda o fluxo comum das estratégias da ATVI, e `DecoradorRecomendacao` é a base
+de `CacheDecorator`, `AuditoriaDecorator` e `CompressaoDecorator`. Todos implementam
+`RecomendacaoStrategy`, sem alterá-la. `MontadorDecoradores` monta a pilha:
+
+| Origem da pilha                         | Como definir                                                             | Observação                                                              |
+| --------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Política de configuração                | `DECORADORES=cache,auditoria,compressao`                                 | Padrão: vazio no código; `cache,auditoria,compressao` no Docker Compose |
+| Preferência do produtor, por requisição | Campo `decoradores` em `POST /projetos`, rodadas, modelos e substituição | Prevalece sobre a política; `[]` desliga                                |
+
+O primeiro item é aplicado primeiro e fica mais perto do recomendador. A ordem muda o comportamento:
+em `cache,auditoria` a auditoria registra também os acertos do cache; em `auditoria,cache` registra
+só as execuções reais.
+
+- **Cache:** em memória, por processo. A chave considera as características do projeto (não o id),
+  os parâmetros e os candidatos, então projetos iguais aproveitam o resultado e uma substituição, que
+  exclui candidatos, não reaproveita um ranking antigo. Validade em `CACHE_RECOMENDACOES_TTL_MS` e
+  limite em `CACHE_RECOMENDACOES_MAXIMO`.
+- **Auditoria:** cada chamada vira uma entrada `RECOMENDADOR_EXECUTADO` em `GET /auditoria`, com
+  estratégia, tempo de resposta, candidatos e resultado. Uma falha ao gravar não derruba a recomendação.
+- **Compressão:** o ranking é guardado em gzip e descomprimido sob demanda. `RankingComprimido`
+  informa `tamanhoOriginal`, `tamanhoComprimido` e a `carga` pronta para transmissão. A resposta HTTP
+  da API continua em JSON sem compressão, porque o decorador atua na interface do recomendador.
+
+---
+
 ## Como executar os testes
 
 ```bash
@@ -214,7 +302,7 @@ npm run test:desempenho   # só os de desempenho com 10 mil profissionais
 npm run coverage          # todos, reprovando abaixo de 80% de cobertura
 ```
 
-São **390 testes automatizados**, em cerca de 25 segundos. Os de integração rodam
+São **539 testes automatizados**, em menos de um minuto. Os de integração rodam
 num schema separado (`teste_integracao`) e não apagam os dados de
 desenvolvimento.
 
@@ -228,15 +316,20 @@ desenvolvimento.
 | Prototype (subclasses de `Projeto`, `clonar()` e detalhes)       | 16     | Vitest                  |
 | Factory Method e Abstract Factory (famílias, registro, sistema)  | 23     | Vitest                  |
 | Aplicação (sistema, saúde, precisão, concorrência, convites)     | 20     | Vitest                  |
-| Infraestrutura (config, cache, disjuntor, barramento, varredura) | 43     | Vitest                  |
+| Infraestrutura (config, cache, disjuntor, barramento, varredura) | 45     | Vitest                  |
+| Adapter (adaptadores, simuladores, rotas e configuração)         | 49     | Vitest                  |
+| Composite (serviços, `Projeto` e `ValidadorEstrutura`)           | 22     | Vitest                  |
+| Decorator (cache, auditoria, compressão e montador)              | 23     | Vitest                  |
 | Catálogo de modelos e API de tipos e modelos                     | 13     | Vitest + `app.inject()` |
 | API HTTP com repositórios em memória                             | 34     | Vitest + `app.inject()` |
 | Integração com PostgreSQL (repositórios, API, fábricas, falhas)  | 31     | Vitest + PostgreSQL 18  |
+| Integração com PostgreSQL: Adapter, Composite e Decorator        | 53     | Vitest + PostgreSQL 18  |
 | Desempenho com 10 mil profissionais                              | 3      | Vitest                  |
 
-Cobertura: **99,0% das linhas** (mínimo exigido: 80%). O CI roda lint, tipos,
-build e testes no **Ubuntu 24.04 e no Windows**, com Node 22 e 24, além da
-integração com PostgreSQL e da subida da stack Docker.
+Cobertura: **99,3% das linhas** (mínimo exigido: 80%). O workflow de CI
+(`.github/workflows/ci.yml`) roda lint, tipos, build e testes no **Ubuntu 24.04 e no Windows**, com
+Node 22 e 24, além da integração com PostgreSQL e da subida da stack Docker. Os 539 testes também
+foram executados localmente no Windows 11 e em um container Ubuntu 24.04.5 limpo.
 
 | Comando                   | O que faz                                                                          |
 | ------------------------- | ---------------------------------------------------------------------------------- |
@@ -300,6 +393,17 @@ ou formação de outra equipe), os convites pendentes dela são cancelados.
 
 Modelos disponíveis: `documentario-entrevistas`, `animacao-3d-curta`, `publicitario-digital` e
 `ficcao-longa`.
+
+### Arquivos e pagamentos
+
+| Método   | URL                                                                                       | Corpo | Esperado                   |
+| -------- | ----------------------------------------------------------------------------------------- | ----- | -------------------------- |
+| `POST`   | `http://localhost:3000/projetos/{projetoId}/arquivos`                                     | **H** | 201                        |
+| `GET`    | `http://localhost:3000/projetos/{projetoId}/arquivos`                                     | —     | 200                        |
+| `GET`    | `http://localhost:3000/projetos/{projetoId}/arquivos/conteudo?id={arquivoId}`             | —     | 200, conteúdo em base64    |
+| `POST`   | `http://localhost:3000/projetos/{projetoId}/equipes/{equipeId}/membros/DIRETOR/pagamento` | —     | 201, após equipe formada   |
+| `GET`    | `http://localhost:3000/projetos/{projetoId}/pagamentos/{pagamentoId}`                     | —     | 200                        |
+| `DELETE` | `http://localhost:3000/projetos/{projetoId}/pagamentos/{pagamentoId}`                     | —     | 200, libera novo pagamento |
 
 ### Relatórios e consultas
 
@@ -404,32 +508,61 @@ demais campos do corpo **A** são opcionais e, quando enviados, ajustam o clone
 { "detalhes": { "entrevistados": ["Seu Tião", "Dona Lia"] } }
 ```
 
+**H** — arquivo do projeto, em base64 (até cerca de 10 MB)
+
+```json
+{ "nome": "roteiro.txt", "tipoConteudo": "text/plain", "conteudoBase64": "Q2VuYSAx" }
+```
+
+**I** — no corpo **A** ou **F**, `servicoPrincipal` substitui `requisitos`; `decoradores` é opcional
+também nos corpos **A**, **B**, **E** e **F**
+
+```json
+{
+  "servicoPrincipal": {
+    "nome": "Pós-produção",
+    "subservicos": [
+      { "nome": "Edição", "papel": "EDITOR", "custo": 20000, "prazoDias": 20, "peso": 6 },
+      { "nome": "Mixagem de áudio", "papel": "SONOPLASTA", "custo": 10000, "prazoDias": 10 }
+    ]
+  },
+  "decoradores": ["cache", "auditoria", "compressao"]
+}
+```
+
 > Os `projetoId`, `equipeId` e `conviteId` são gerados pela API. O `POST /projetos`
 > devolve `projeto.id` e `projeto.equipes[0].id`; o aceite devolve `convite.id`.
 
 ### Casos de erro
 
-| Método   | URL                                                                                | Corpo                                     | Esperado                                   |
-| -------- | ---------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------ |
-| `GET`    | `http://localhost:3000/projetos/inexistente`                                       | —                                         | 404 `NAO_ENCONTRADO`                       |
-| `POST`   | `http://localhost:3000/convites/inexistente/resposta`                              | **D**                                     | 404 `NAO_ENCONTRADO`                       |
-| `POST`   | `http://localhost:3000/projetos`                                                   | `{ "titulo": "x" }`                       | 400 `REQUISICAO_INVALIDA`                  |
-| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com um campo a mais                 | 400 `REQUISICAO_INVALIDA`                  |
-| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"orcamento": 1e15`             | 400 `REQUISICAO_INVALIDA`                  |
-| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"estrategia": "aleatoria"`     | 400 `ESTRATEGIA_DESCONHECIDA`              |
-| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"orcamento": 1500`             | 422 `RESTRICAO_VIOLADA`                    |
-| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"dataEntrega"` antes do início | 422 `VALOR_INVALIDO`                       |
-| `POST`   | `http://localhost:3000/projetos`                                                   | documentário sem entrevistados            | 422 `RESTRICAO_VIOLADA`                    |
-| `POST`   | `http://localhost:3000/projetos`                                                   | animação sem `EFEITOS_VISUAIS`            | 422 `RESTRICAO_VIOLADA`                    |
-| `POST`   | `http://localhost:3000/projetos`                                                   | publicidade com `"veiculacao": ["RADIO"]` | 422 `VALOR_INVALIDO`                       |
-| `POST`   | `http://localhost:3000/projetos`                                                   | `detalhes` com campo que o tipo não tem   | 422 `VALOR_INVALIDO`                       |
-| `POST`   | `http://localhost:3000/modelos-projeto/novela/projetos`                            | **F**                                     | 404 `NAO_ENCONTRADO`                       |
-| `PATCH`  | `http://localhost:3000/projetos/{projetoId}/detalhes`                              | **G** depois da equipe formada            | 409 `TRANSICAO_INVALIDA`                   |
-| `POST`   | `http://localhost:3000/projetos/{id}/equipes/{id}/membros/DIRETOR/aceite`          | repetido                                  | 409 `TRANSICAO_INVALIDA`                   |
-| `POST`   | `http://localhost:3000/convites/{conviteId}/resposta`                              | repetido, vencido ou de equipe descartada | 409 `TRANSICAO_INVALIDA`                   |
-| `POST`   | `http://localhost:3000/projetos/{id}/equipes/{id}/finalizacao`                     | com papel sem confirmar                   | 422 `REGRA_VIOLADA`                        |
-| qualquer | com o PostgreSQL fora do ar                                                        | —                                         | 503 `SERVICO_INDISPONIVEL` + `retry-after` |
-| qualquer | duas alterações simultâneas no mesmo projeto (após 6 novas tentativas automáticas) | —                                         | 409 `CONFLITO_CONCORRENCIA`                |
+| Método   | URL                                                                                | Corpo                                       | Esperado                                   |
+| -------- | ---------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------ |
+| `GET`    | `http://localhost:3000/projetos/inexistente`                                       | —                                           | 404 `NAO_ENCONTRADO`                       |
+| `POST`   | `http://localhost:3000/convites/inexistente/resposta`                              | **D**                                       | 404 `NAO_ENCONTRADO`                       |
+| `POST`   | `http://localhost:3000/projetos`                                                   | `{ "titulo": "x" }`                         | 400 `REQUISICAO_INVALIDA`                  |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com um campo a mais                   | 400 `REQUISICAO_INVALIDA`                  |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"orcamento": 1e15`               | 400 `REQUISICAO_INVALIDA`                  |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"estrategia": "aleatoria"`       | 400 `ESTRATEGIA_DESCONHECIDA`              |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"orcamento": 1500`               | 422 `RESTRICAO_VIOLADA`                    |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"dataEntrega"` antes do início   | 422 `VALOR_INVALIDO`                       |
+| `POST`   | `http://localhost:3000/projetos`                                                   | documentário sem entrevistados              | 422 `RESTRICAO_VIOLADA`                    |
+| `POST`   | `http://localhost:3000/projetos`                                                   | animação sem `EFEITOS_VISUAIS`              | 422 `RESTRICAO_VIOLADA`                    |
+| `POST`   | `http://localhost:3000/projetos`                                                   | publicidade com `"veiculacao": ["RADIO"]`   | 422 `VALOR_INVALIDO`                       |
+| `POST`   | `http://localhost:3000/projetos`                                                   | `detalhes` com campo que o tipo não tem     | 422 `VALOR_INVALIDO`                       |
+| `POST`   | `http://localhost:3000/modelos-projeto/novela/projetos`                            | **F**                                       | 404 `NAO_ENCONTRADO`                       |
+| `PATCH`  | `http://localhost:3000/projetos/{projetoId}/detalhes`                              | **G** depois da equipe formada              | 409 `TRANSICAO_INVALIDA`                   |
+| `POST`   | `http://localhost:3000/projetos/{id}/equipes/{id}/membros/DIRETOR/aceite`          | repetido                                    | 409 `TRANSICAO_INVALIDA`                   |
+| `POST`   | `http://localhost:3000/convites/{conviteId}/resposta`                              | repetido, vencido ou de equipe descartada   | 409 `TRANSICAO_INVALIDA`                   |
+| `POST`   | `http://localhost:3000/projetos/{id}/equipes/{id}/finalizacao`                     | com papel sem confirmar                     | 422 `REGRA_VIOLADA`                        |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `requisitos` e `servicoPrincipal` | 422 `VALOR_INVALIDO`                       |
+| `POST`   | `http://localhost:3000/projetos`                                                   | custo dos serviços acima do orçamento       | 422 `RESTRICAO_VIOLADA`                    |
+| `POST`   | `http://localhost:3000/projetos`                                                   | prazo dos serviços acima do período         | 422 `RESTRICAO_VIOLADA`                    |
+| `POST`   | `http://localhost:3000/projetos`                                                   | **A** com `"decoradores": ["magia"]`        | 400 `REQUISICAO_INVALIDA`                  |
+| `POST`   | `http://localhost:3000/projetos/{id}/equipes/{id}/membros/DIRETOR/pagamento`       | equipe não formada ou papel já pago         | 409 `TRANSICAO_INVALIDA`                   |
+| `GET`    | `http://localhost:3000/projetos/{id}/arquivos/conteudo?id={id de outro projeto}`   | —                                           | 404 `NAO_ENCONTRADO`                       |
+| `GET`    | `http://localhost:3000/projetos/{id}/pagamentos/{id}`                              | pagamento feito em outro provedor           | 422 `REGRA_VIOLADA`                        |
+| qualquer | com o PostgreSQL fora do ar                                                        | —                                           | 503 `SERVICO_INDISPONIVEL` + `retry-after` |
+| qualquer | duas alterações simultâneas no mesmo projeto (após 6 novas tentativas automáticas) | —                                           | 409 `CONFLITO_CONCORRENCIA`                |
 
 ### Respostas de erro
 
@@ -476,9 +609,11 @@ aplicação depende só de portas (interfaces); a composição é explícita em
 src/
   domain/              entidades, value objects, eventos tipados, interface Visitavel
     entidades/projetos/  subclasses de Projeto com clonar() (Prototype)
+    entidades/servicos/  ServicoProjeto, ServicoAtomico e PacoteServico (Composite)
   application/
-    ports/             interfaces que a aplicação exige (repositórios, Sujeito, canais)
-    strategies/        Strategy
+    ports/             interfaces que a aplicação exige (repositórios, Sujeito, canais, adaptadores)
+    strategies/        Strategy e RecomendadorBase
+      decoradores/     Decorator: cache, auditoria, compressão e montador da pilha
     orchestration/     Template Method (recebe a FabricaProjeto)
     observers/         Observer
     visitors/          Visitor
@@ -486,6 +621,8 @@ src/
     prototipos/        catálogo de modelos clonáveis (Prototype)
     use-cases/         um caso de uso por ação da API
   infrastructure/      TypeORM, cache resiliente, EventEmitter, canais de saída, varredura, pino
+    adaptadores/       Adapter: um adaptador por provedor
+    externos/          sistemas externos simulados
   api/                 rotas Fastify, schemas TypeBox, apresentação e erros
   container.ts         composition root
   cluster.ts           vários processos Node atrás da mesma porta
@@ -524,7 +661,7 @@ sem alterar observadores nem casos de uso.
 | RNF06 camadas, inversão de dependência e injeção explícita                                       | `application/ports`, `container.ts`                                     | `barramento-container.test.ts`                                     |
 | RNF07 eventos em memória substituíveis por fila                                                  | porta `Sujeito`, `barramento-eventos-memoria.ts`                        | `demonstracao-observer.test.ts`                                    |
 | RNF08 Node LTS, TypeScript estrito, Fastify, PostgreSQL, TypeORM                                 | `package.json`, `tsconfig.json`                                         | CI                                                                 |
-| RNF09 testes por padrão e cobertura acima de 80%                                                 | `tests/`                                                                | `npm run coverage` (99,0%)                                         |
+| RNF09 testes por padrão e cobertura acima de 80%                                                 | `tests/`                                                                | `npm run coverage` (99,3%)                                         |
 | RNF10 Windows 10+ e Ubuntu 24.04+                                                                | scripts sem bash, `.gitattributes`                                      | CI em `ubuntu-24.04` e `windows-latest`                            |
 
 ### ATVII
@@ -541,6 +678,26 @@ sem alterar observadores nem casos de uso.
 | Relatório de animação com métricas de renderização                                                     | `familias/animacao/gerador-relatorio-animacao.ts`          | `demonstracao-abstract-factory.test.ts`                                 |
 | Windows 10+ e Ubuntu 24.04.3+                                                                          | nada específico de sistema operacional; Docker e Node 22   | CI em `ubuntu-24.04` e `windows-latest`                                 |
 
+### ATVIII
+
+| Tarefa do enunciado                                                                            | Onde                                                                    | Teste                                             |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
+| Análise de anti-padrões, com refatorações                                                      | [docs/analise-antipadroes.md](docs/analise-antipadroes.md)              | —                                                 |
+| Interfaces `AdaptadorArmazenamento`, `AdaptadorPagamento` e `AdaptadorProfissional`            | `application/ports/adaptador-*.ts`                                      | `adaptadores.test.ts`                             |
+| Ao menos dois adaptadores por interface (implementados três, como no diagrama)                 | `infrastructure/adaptadores`                                            | `adaptadores.test.ts`                             |
+| Sistemas externos simulados                                                                    | `infrastructure/externos`                                               | `adaptadores.test.ts`                             |
+| `SistemaRecomendacao` recebe os adaptadores e não depende de implementações concretas          | `configurarAdaptadores` em `sistema-recomendacao.ts`                    | `adapter.test.ts`, `integracoes.test.ts`          |
+| Interface `ServicoProjeto`, `ServicoAtomico` e `PacoteServico`                                 | `domain/entidades/servicos`                                             | `servicos.test.ts`, `composite.test.ts`           |
+| `Projeto.servicoPrincipal` e `calcularCustoTotal` por delegação                                | `domain/entidades/projeto.ts`                                           | `servicos.test.ts`, `composite.test.ts`           |
+| Validação recursiva de papéis e prazos                                                         | `ServicoAtomico.validar`, `PacoteServico.validar`, `ValidadorEstrutura` | `servicos.test.ts`, `validador-estrutura.test.ts` |
+| `RecomendadorBase`, `CacheDecorator`, `AuditoriaDecorator` e `CompressaoDecorator`             | `application/strategies`                                                | `decoradores.test.ts`, `decorator.test.ts`        |
+| Decoradores combinados em qualquer ordem, sem modificar `SistemaRecomendacao`                  | `montador-decoradores.ts`                                               | `decorator.test.ts`                               |
+| Pilha definida em tempo de execução, por configuração ou preferência do produtor               | variável `DECORADORES` e campo `decoradores`                            | `decorator.test.ts`                               |
+| Integração do Adapter: troca de provedor sem alterar a lógica de negócio                       | `tests/integration/adapter.test.ts`                                     | idem, com PostgreSQL real                         |
+| Integração do Composite: custo e prazo em diferentes profundidades                             | `tests/integration/composite.test.ts`                                   | idem, com PostgreSQL real                         |
+| Integração do Decorator: cache mais rápido, auditoria completa, dados menores, base inalterada | `tests/integration/decorator.test.ts`                                   | idem, com PostgreSQL real                         |
+| Windows 10+, Ubuntu 24.04.3+ e derivadas                                                       | scripts sem bash, caminhos com `node:path`, Docker e Node 22            | CI em `ubuntu-24.04` e `windows-latest`           |
+
 ## Desempenho
 
 | Cenário (POST /projetos, 6 papéis, 10 mil profissionais) | Resultado                                    |
@@ -549,16 +706,19 @@ sem alterar observadores nem casos de uso.
 | 100 requisições simultâneas                              | todas abaixo de 2 s (máximo 1,81 s), 0 erros |
 | 100 conexões contínuas por 30 s                          | 87 req/s, p99 1,76 s, 0 erros                |
 | 100 simultâneas, medido de novo após a ATVII             | p50 0,82–0,89 s, máximo 0,95 s, 0 erros      |
+| 100 simultâneas na ATVIII, sem cache                     | p50 1,20–1,65 s, máximo 1,84 s, 0 erros      |
+| 100 simultâneas na ATVIII, com cache                     | p50 0,62–0,77 s, máximo 0,91 s, 0 erros      |
 
 Metodologia, as otimizações medidas e a precisão de cada estratégia estão em
 [docs/desempenho.md](docs/desempenho.md).
 
 ## Documentos
 
-| Arquivo                                            | Conteúdo                                                  |
-| -------------------------------------------------- | --------------------------------------------------------- |
-| [docs/analise-critica.md](docs/analise-critica.md) | rigidez, fragilidade e imobilidade da ATVI e as correções |
-| [docs/desempenho.md](docs/desempenho.md)           | medições de desempenho, resiliência e precisão            |
+| Arquivo                                                    | Conteúdo                                                  |
+| ---------------------------------------------------------- | --------------------------------------------------------- |
+| [docs/analise-critica.md](docs/analise-critica.md)         | rigidez, fragilidade e imobilidade da ATVI e as correções |
+| [docs/analise-antipadroes.md](docs/analise-antipadroes.md) | anti-padrões examinados na ATVIII e as refatorações       |
+| [docs/desempenho.md](docs/desempenho.md)                   | medições de desempenho, resiliência e precisão            |
 
 ---
 
@@ -572,15 +732,15 @@ Metodologia, as otimizações medidas e a precisão de cada estratégia estão e
 |________________________________|
 | CINEBRIDGE                     |
 | CENA ............ pós-créditos |
-| TOMADA ................. ATVII |
+| TOMADA ................ ATVIII |
 | DIREÇÃO .... Equipe CineBridge |
 |________________________________|
 ```
 
 - **Elenco:** 10.000 profissionais gerados pelo seed (nenhum deles sabe que é fictício).
-- **Roteiro:** 7 padrões de projeto e nenhum `if` por tipo de projeto no orquestrador.
+- **Roteiro:** 10 padrões de projeto e nenhum `if` por tipo de projeto no orquestrador.
 - **Efeitos especiais:** um projeto de realidade virtual que só existe dentro dos testes.
-- **Aviso:** nenhum profissional foi maltratado durante os 390 testes. Alguns foram recusados, mas quase todos ganharam um substituto.
+- **Aviso:** nenhum profissional foi maltratado durante os 539 testes. Alguns foram recusados, mas quase todos ganharam um substituto.
 - **Agradecimentos especiais:** Prof. Dr. Eng. Gerson Penha.
 
 Psiu: a Cena 1 passa toda vez que o serviço sobe. Procure por "tomada" em

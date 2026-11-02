@@ -37,6 +37,7 @@ SELECT p.*,
 FROM profissional p`;
 
 const TABELAS_FILHAS = ['competencia', 'avaliacao', 'participacao_projeto', 'disponibilidade'];
+const TRAVA_CADASTRO = 'cadastro-profissionais';
 
 export class RepositorioProfissionaisTypeorm implements RepositorioProfissionais {
   constructor(private readonly dataSource: DataSource) {}
@@ -94,6 +95,7 @@ export class RepositorioProfissionaisTypeorm implements RepositorioProfissionais
     const linhas = profissionais.map(deProfissional);
     const ids = linhas.map((linha) => linha.profissional.id);
     await this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [TRAVA_CADASTRO]);
       for (const tabela of TABELAS_FILHAS) {
         await manager.query(`DELETE FROM ${tabela} WHERE profissional_id = ANY($1::text[])`, [ids]);
       }

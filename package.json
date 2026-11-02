@@ -37,7 +37,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pedrodevroot/atv2.git"
+    "url": "git+https://github.com/pedrodevroot/atv3.git"
   },
   "keywords": [
     "cinebridge",
@@ -48,9 +48,9 @@
   "author": "pxdev__",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/pedrodevroot/atv2/issues"
+    "url": "https://github.com/pedrodevroot/atv3/issues"
   },
-  "homepage": "https://github.com/pedrodevroot/atv2#readme",
+  "homepage": "https://github.com/pedrodevroot/atv3#readme",
   "dependencies": {
     "@faker-js/faker": "^10.6.0",
     "@fastify/swagger": "^9.9.0",

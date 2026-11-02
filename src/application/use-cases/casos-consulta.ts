@@ -10,6 +10,7 @@ import {
   combinarValidacoes,
   type ResultadoValidacao,
 } from '../visitors/validador-consistencia.js';
+import { ValidadorEstrutura } from '../visitors/validador-estrutura.js';
 import { obterProjeto, type DependenciasCasosDeUso } from './dependencias.js';
 
 export interface LeitorAuditoria {
@@ -47,6 +48,7 @@ export class ConsultasRecomendacao {
       validacao: combinarValidacoes([
         alvo.aceitar(new ValidadorConsistencia(projeto)),
         alvo.aceitar(fabrica.criarValidador()),
+        alvo.aceitar(new ValidadorEstrutura()),
       ]),
       compatibilidade: alvo.aceitar(new CalculadorCompatibilidade(projeto)),
       relatorio: alvo.aceitar(fabrica.criarGeradorRelatorio(projeto, this.deps.relogio())),

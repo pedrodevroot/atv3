@@ -12,6 +12,7 @@ import type { Observador } from '../ports/observador.js';
 import type { RepositorioProjetos } from '../ports/repositorio-projetos.js';
 import type { RepositorioRecomendacoes } from '../ports/repositorio-recomendacoes.js';
 import type { SistemaRecomendacao } from '../sistema-recomendacao.js';
+import type { MontadorDecoradores } from '../strategies/decoradores/montador-decoradores.js';
 
 export const ORIGEM_ATUALIZADOR = 'atualizador-composicao';
 
@@ -19,6 +20,7 @@ export interface DependenciasAtualizador {
   readonly projetos: RepositorioProjetos;
   readonly recomendacoes?: RepositorioRecomendacoes;
   readonly sistema: SistemaRecomendacao;
+  readonly decoradores?: MontadorDecoradores;
 }
 
 type RespostaConvite =
@@ -79,7 +81,12 @@ export class AtualizadorComposicao implements Observador {
     const opcoes = { origem: ORIGEM_ATUALIZADOR, correlacaoId: evento.correlacaoId ?? evento.id };
     let resultado;
     try {
-      resultado = await this.dependencias.sistema.substituir(projeto, { equipeId, papel });
+      const estrategia = this.dependencias.decoradores?.paraProjeto(projeto, {});
+      resultado = await this.dependencias.sistema.substituir(
+        projeto,
+        { equipeId, papel },
+        estrategia ? { estrategia } : {},
+      );
     } catch (erro) {
       if (!ehErroDeNegocio(erro)) {
         throw erro;

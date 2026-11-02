@@ -29,6 +29,14 @@ export class RepositorioProfissionaisMemoria implements RepositorioProfissionais
     );
   }
 
+  obterPorIds(ids: readonly string[]): Promise<Map<string, Profissional>> {
+    const encontrados = ids.flatMap((id) => {
+      const profissional = this.profissionais.get(id);
+      return profissional ? [[id, profissional] as const] : [];
+    });
+    return Promise.resolve(new Map(encontrados));
+  }
+
   buscarCandidatos(criterios: CriteriosBusca): Promise<ResultadoBusca> {
     return Promise.resolve({
       profissionais: filtrarCandidatos(this.profissionais.values(), criterios),

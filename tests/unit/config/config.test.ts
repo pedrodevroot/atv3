@@ -35,7 +35,40 @@ describe('carregarConfig', () => {
         circuitoEsperaMs: 10_000,
       },
       convites: { varreduraMs: 60_000 },
+      integracoes: {
+        armazenamento: 's3',
+        diretorioLocal: join(tmpdir(), 'cinebridge-arquivos'),
+        pagamento: 'stripe',
+        profissionais: 'interno',
+      },
+      recomendacao: { decoradores: [], cacheTtlMs: 60_000, cacheMaximo: 500 },
     });
+  });
+
+  it('lê os provedores e a pilha de decoradores das variáveis de ambiente', () => {
+    const config = carregarConfig({
+      ...obrigatorias,
+      ARMAZENAMENTO_PROVEDOR: 'google-cloud',
+      PAGAMENTO_PROVEDOR: 'paypal',
+      PROFISSIONAIS_PROVEDOR: 'linkedin',
+      DECORADORES: 'compressao,cache',
+    });
+
+    expect(config.integracoes).toMatchObject({
+      armazenamento: 'google-cloud',
+      pagamento: 'paypal',
+      profissionais: 'linkedin',
+    });
+    expect(config.recomendacao.decoradores).toEqual(['compressao', 'cache']);
+  });
+
+  it('recusa provedor ou decorador desconhecido no boot', () => {
+    expect(() => carregarConfig({ ...obrigatorias, PAGAMENTO_PROVEDOR: 'boleto' })).toThrow(
+      ErroConfiguracao,
+    );
+    expect(() => carregarConfig({ ...obrigatorias, DECORADORES: 'cache,magia' })).toThrow(
+      ErroConfiguracao,
+    );
   });
 
   it('converte texto das variáveis de ambiente em números', () => {

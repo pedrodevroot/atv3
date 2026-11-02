@@ -1,5 +1,7 @@
-import Type, { type Static } from 'typebox';
+import Type, { type Static, type TSchema } from 'typebox';
+import { NOMES_DECORADORES } from '../../application/strategies/decoradores/montador-decoradores.js';
 import { DURACAO_MAXIMA_MINUTOS, ORCAMENTO_MAXIMO } from '../../domain/entidades/projeto.js';
+import { PESO_MAXIMO } from '../../domain/entidades/requisito-papel.js';
 import { PAPEIS } from '../../domain/enums/papel.js';
 import { TIPOS_CAPTACAO } from '../../domain/enums/tipo-captacao.js';
 
@@ -25,6 +27,45 @@ const RequisitosSchema = Type.Array(
   Type.Object({ papel: PapelSchema, peso: Type.Number({ exclusiveMinimum: 0, maximum: 10 }) }),
   { minItems: 1, maxItems: 6 },
 );
+
+const PROFUNDIDADE_MAXIMA_SERVICOS = 6;
+const SUBSERVICOS_POR_PACOTE = 50;
+const PRAZO_MAXIMO_SERVICO_DIAS = 36_500;
+
+const ServicoAtomicoSchema = Type.Object(
+  {
+    nome: Texto(200),
+    papel: PapelSchema,
+    custo: Type.Number({ minimum: 0, maximum: ORCAMENTO_MAXIMO }),
+    prazoDias: Type.Integer({ minimum: 0, maximum: PRAZO_MAXIMO_SERVICO_DIAS }),
+    peso: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: PESO_MAXIMO })),
+  },
+  { additionalProperties: false },
+);
+
+function pacoteComNiveis(niveis: number): TSchema {
+  const subservico =
+    niveis <= 1
+      ? ServicoAtomicoSchema
+      : Type.Union([ServicoAtomicoSchema, pacoteComNiveis(niveis - 1)]);
+  return Type.Object(
+    {
+      nome: Texto(200),
+      subservicos: Type.Array(subservico, { minItems: 1, maxItems: SUBSERVICOS_POR_PACOTE }),
+    },
+    { additionalProperties: false },
+  );
+}
+
+export const ServicoSchema = Type.Union([
+  ServicoAtomicoSchema,
+  pacoteComNiveis(PROFUNDIDADE_MAXIMA_SERVICOS),
+]);
+
+const DecoradoresSchema = Type.Array(Type.Enum([...NOMES_DECORADORES]), {
+  maxItems: NOMES_DECORADORES.length,
+  uniqueItems: true,
+});
 
 const grupoNumerico = (chaves: readonly string[]) =>
   Type.Optional(
@@ -75,10 +116,12 @@ export const CorpoCriarProjeto = Type.Object(
     dataInicio: DataHora,
     dataEntrega: DataHora,
     localizacao: LocalizacaoSchema,
-    requisitos: RequisitosSchema,
+    requisitos: Type.Optional(RequisitosSchema),
+    servicoPrincipal: Type.Optional(ServicoSchema),
     detalhes: Type.Optional(DetalhesSchema),
     estrategia: Type.Optional(Id),
     parametros: Type.Optional(ParametrosSchema),
+    decoradores: Type.Optional(DecoradoresSchema),
   },
   { additionalProperties: false },
 );
@@ -94,9 +137,11 @@ export const CorpoProjetoDeModelo = Type.Object(
     orcamento: Type.Optional(Orcamento),
     localizacao: Type.Optional(LocalizacaoSchema),
     requisitos: Type.Optional(RequisitosSchema),
+    servicoPrincipal: Type.Optional(ServicoSchema),
     detalhes: Type.Optional(DetalhesSchema),
     estrategia: Type.Optional(Id),
     parametros: Type.Optional(ParametrosSchema),
+    decoradores: Type.Optional(DecoradoresSchema),
   },
   { additionalProperties: false },
 );
@@ -107,7 +152,11 @@ export const CorpoDetalhes = Type.Object(
 );
 
 export const CorpoRodada = Type.Object(
-  { estrategia: Type.Optional(Id), parametros: Type.Optional(ParametrosSchema) },
+  {
+    estrategia: Type.Optional(Id),
+    parametros: Type.Optional(ParametrosSchema),
+    decoradores: Type.Optional(DecoradoresSchema),
+  },
   { additionalProperties: false },
 );
 
@@ -121,9 +170,47 @@ export const CorpoReavaliacao = Type.Object(
 );
 
 export const CorpoSubstituicao = Type.Object(
-  { estrategia: Type.Optional(Id) },
+  { estrategia: Type.Optional(Id), decoradores: Type.Optional(DecoradoresSchema) },
   { additionalProperties: false },
 );
+
+export const TAMANHO_MAXIMO_ARQUIVO_BASE64 = 14_000_000;
+
+export const CorpoArquivo = Type.Object(
+  {
+    nome: Texto(200),
+    tipoConteudo: Texto(120),
+    conteudoBase64: Type.String({
+      minLength: 1,
+      maxLength: TAMANHO_MAXIMO_ARQUIVO_BASE64,
+      pattern: '^[A-Za-z0-9+/]+={0,2}$',
+    }),
+  },
+  { additionalProperties: false },
+);
+
+export const QueryArquivo = Type.Object({ id: Type.String({ minLength: 1, maxLength: 512 }) });
+
+export const ArquivoResposta = Type.Object({ id: Type.String(), provedor: Type.String() });
+
+export const ArquivosResposta = Type.Object({ arquivos: Type.Array(Type.String()) });
+
+export const ConteudoArquivoResposta = Type.Object({
+  id: Type.String(),
+  conteudoBase64: Type.String(),
+});
+
+export const PagamentoResposta = Type.Object({
+  id: Type.String(),
+  projetoId: Type.String(),
+  equipeId: Type.String(),
+  papel: Type.String(),
+  profissionalId: Type.String(),
+  valor: Type.Number(),
+  provedor: Type.String(),
+  status: Type.String(),
+  criadoEm: Type.String(),
+});
 
 export const CorpoRespostaConvite = Type.Object(
   { aceito: Type.Boolean() },
@@ -131,6 +218,7 @@ export const CorpoRespostaConvite = Type.Object(
 );
 
 export const ParamsProjeto = Type.Object({ projetoId: Id });
+export const ParamsPagamento = Type.Object({ projetoId: Id, pagamentoId: Id });
 export const ParamsEquipe = Type.Object({ projetoId: Id, equipeId: Id });
 export const ParamsMembro = Type.Object({ projetoId: Id, equipeId: Id, papel: PapelSchema });
 export const ParamsConvite = Type.Object({ conviteId: Id });
@@ -174,6 +262,9 @@ export const ProjetoResposta = Type.Object({
   localizacao: Type.Object({ cidade: Type.String(), uf: Type.String() }),
   estrategia: Type.String(),
   requisitos: Type.Array(Type.Object({ papel: Type.String(), peso: Type.Number() })),
+  servicoPrincipal: DetalhesSchema,
+  custoTotalServicos: Type.Number(),
+  prazoTotalDias: Type.Integer(),
   detalhes: DetalhesSchema,
   equipes: Type.Array(EquipeResposta),
   equipeFormadaId: Type.Optional(Type.String()),
@@ -191,6 +282,9 @@ export const ModelosResposta = Type.Array(
     duracaoDias: Type.Integer(),
     estrategia: Type.String(),
     requisitos: Type.Array(Type.Object({ papel: Type.String(), peso: Type.Number() })),
+    servicoPrincipal: DetalhesSchema,
+    custoTotalServicos: Type.Number(),
+    prazoTotalDias: Type.Integer(),
     detalhes: DetalhesSchema,
   }),
 );

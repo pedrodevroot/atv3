@@ -22,7 +22,8 @@ export type CodigoProblema =
   | 'REQUISITO_DO_TIPO'
   | 'DETALHE_DO_TIPO'
   | 'PRAZO_DO_TIPO'
-  | 'COMPETENCIA_DO_TIPO';
+  | 'COMPETENCIA_DO_TIPO'
+  | 'ESTRUTURA_SERVICOS';
 
 export interface Problema {
   readonly codigo: CodigoProblema;

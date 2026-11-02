@@ -101,6 +101,9 @@ export function comporNotificacoes(evento: EventoRecomendacao): Notificacao[] {
     case 'MEMBRO_REJEITADO':
     case 'REAVALIACAO_SOLICITADA':
     case 'DETALHES_ATUALIZADOS':
+    case 'ARQUIVO_ANEXADO':
+    case 'PAGAMENTO_EFETUADO':
+    case 'PAGAMENTO_CANCELADO':
       return [];
   }
 }

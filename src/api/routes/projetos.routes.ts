@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyRequest } from 'fastify';
 import type { ParametrosRecomendacaoParciais } from '../../application/strategies/parametros-recomendacao.js';
 import type { CasosDeUso } from '../../application/use-cases/casos-de-uso.js';
+import type { DadosServico } from '../../domain/entidades/servicos/servico-projeto.js';
 import {
   apresentarAnalise,
   apresentarAuditoria,
@@ -56,17 +57,22 @@ export function rotasProjetos(casos: CasosDeUso): FastifyPluginAsyncTypebox {
         },
       },
       async (requisicao, resposta) => {
-        const corpo = requisicao.body;
+        const { servicoPrincipal, requisitos, ...corpo } = requisicao.body;
         const parametros = parametrosDe(corpo.parametros);
         const rodada = await casos.criarProjeto.executar(
           {
             ...corpo,
             dataInicio: new Date(corpo.dataInicio),
             dataEntrega: new Date(corpo.dataEntrega),
-            requisitos: corpo.requisitos.map((requisito) => ({
-              papel: requisito.papel,
-              peso: requisito.peso,
-            })),
+            ...(requisitos
+              ? {
+                  requisitos: requisitos.map((requisito) => ({
+                    papel: requisito.papel,
+                    peso: requisito.peso,
+                  })),
+                }
+              : {}),
+            ...(servicoPrincipal ? { servicoPrincipal: servicoPrincipal as DadosServico } : {}),
             ...(parametros ? { parametros } : {}),
           },
           contextoDe(requisicao),
@@ -106,6 +112,7 @@ export function rotasProjetos(casos: CasosDeUso): FastifyPluginAsyncTypebox {
           requisicao.params.projetoId,
           {
             ...(requisicao.body.estrategia ? { estrategia: requisicao.body.estrategia } : {}),
+            ...(requisicao.body.decoradores ? { decoradores: requisicao.body.decoradores } : {}),
             ...(parametros ? { parametros } : {}),
           },
           contextoDe(requisicao),
@@ -243,7 +250,10 @@ export function rotasProjetos(casos: CasosDeUso): FastifyPluginAsyncTypebox {
         apresentarRodada(
           await casos.substituirMembro.executar(
             { ...requisicao.params, papel: requisicao.params.papel },
-            requisicao.body.estrategia ? { estrategia: requisicao.body.estrategia } : {},
+            {
+              ...(requisicao.body.estrategia ? { estrategia: requisicao.body.estrategia } : {}),
+              ...(requisicao.body.decoradores ? { decoradores: requisicao.body.decoradores } : {}),
+            },
             contextoDe(requisicao),
           ),
         ),

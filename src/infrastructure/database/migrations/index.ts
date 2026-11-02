@@ -4,6 +4,7 @@ import { AdicionarOrdemEquipe1790550000000 } from './1790550000000-adicionar-ord
 import { AdicionarDescartadosEquipe1790560000000 } from './1790560000000-adicionar-descartados-equipe.js';
 import { AdicionarVersaoProjeto1790570000000 } from './1790570000000-adicionar-versao-projeto.js';
 import { AdicionarDetalhesProjeto1790580000000 } from './1790580000000-adicionar-detalhes-projeto.js';
+import { AdicionarServicosEIntegracoes1790590000000 } from './1790590000000-adicionar-servicos-e-integracoes.js';
 
 export const migracoes: (new () => MigrationInterface)[] = [
   CriarEsquemaInicial1790540000000,
@@ -11,4 +12,5 @@ export const migracoes: (new () => MigrationInterface)[] = [
   AdicionarDescartadosEquipe1790560000000,
   AdicionarVersaoProjeto1790570000000,
   AdicionarDetalhesProjeto1790580000000,
+  AdicionarServicosEIntegracoes1790590000000,
 ];

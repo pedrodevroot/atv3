@@ -2,24 +2,30 @@ import type { Projeto } from '../domain/entidades/projeto.js';
 import type { Papel } from '../domain/enums/papel.js';
 import type { EventoRecomendacao } from '../domain/eventos/evento-recomendacao.js';
 import type { VisitanteProjeto } from '../domain/visitante/visitante-projeto.js';
+import { CadastroViaAdaptador } from './cadastro-via-adaptador.js';
+import { ErroAplicacao } from './erros/erro-aplicacao.js';
 import { eventoRecomendacaoGerada, membrosSugeridos } from './eventos/fabrica-eventos.js';
 import type { FabricaProjeto } from './familias/fabrica-projeto.js';
 import type { RegistroFabricas } from './familias/registro-fabricas.js';
 import type { ResultadoOrquestracao } from './orchestration/orquestrador-equipe.js';
 import { OrquestradorPadrao } from './orchestration/orquestrador-padrao.js';
 import { OrquestradorSubstituicao } from './orchestration/orquestrador-substituicao.js';
+import type { AdaptadorArmazenamento } from './ports/adaptador-armazenamento.js';
+import type { AdaptadorPagamento } from './ports/adaptador-pagamento.js';
+import type { AdaptadorProfissional } from './ports/adaptador-profissional.js';
 import type { Observador, Sujeito } from './ports/observador.js';
 import { relogioDoSistema, type Relogio } from './ports/relogio.js';
 import type { RepositorioProfissionais } from './ports/repositorio-profissionais.js';
-import type { EstrategiaRecomendacao } from './strategies/estrategia-recomendacao.js';
+import type { RecomendacaoStrategy } from './strategies/estrategia-recomendacao.js';
 import type { ParametrosRecomendacao } from './strategies/parametros-recomendacao.js';
 import type { RegistroEstrategias } from './strategies/registro-estrategias.js';
 import type { ResultadoValidacao } from './visitors/validador-consistencia.js';
 
-export type RecomendacaoStrategy = EstrategiaRecomendacao;
+export type { RecomendacaoStrategy };
 
 export interface DependenciasSistemaRecomendacao {
   readonly repositorio: RepositorioProfissionais;
+  readonly conectarCadastro?: (adaptador: AdaptadorProfissional) => RepositorioProfissionais;
   readonly fabricas: RegistroFabricas;
   readonly estrategias: RegistroEstrategias;
   readonly sujeito: Sujeito;
@@ -47,12 +53,17 @@ export interface AlvoSubstituicao {
 }
 
 export class SistemaRecomendacao {
+  private adaptadorArmazenamento: AdaptadorArmazenamento | undefined;
+  private adaptadorPagamento: AdaptadorPagamento | undefined;
+  private adaptadorProfissional: AdaptadorProfissional | undefined;
   private estrategiaAtual: RecomendacaoStrategy | undefined;
+  private repositorio: RepositorioProfissionais;
 
   constructor(
     private readonly dependencias: DependenciasSistemaRecomendacao,
     estrategiaInicial?: RecomendacaoStrategy | string,
   ) {
+    this.repositorio = dependencias.repositorio;
     if (estrategiaInicial !== undefined) {
       this.definirEstrategia(estrategiaInicial);
     }
@@ -60,6 +71,30 @@ export class SistemaRecomendacao {
 
   get estrategia(): RecomendacaoStrategy | undefined {
     return this.estrategiaAtual;
+  }
+
+  configurarAdaptadores(
+    armazenamento: AdaptadorArmazenamento,
+    pagamento: AdaptadorPagamento,
+    profissional: AdaptadorProfissional,
+  ): void {
+    this.adaptadorArmazenamento = armazenamento;
+    this.adaptadorPagamento = pagamento;
+    this.adaptadorProfissional = profissional;
+    this.repositorio =
+      this.dependencias.conectarCadastro?.(profissional) ?? new CadastroViaAdaptador(profissional);
+  }
+
+  get armazenamento(): AdaptadorArmazenamento {
+    return this.exigirAdaptador(this.adaptadorArmazenamento, 'armazenamento');
+  }
+
+  get pagamento(): AdaptadorPagamento {
+    return this.exigirAdaptador(this.adaptadorPagamento, 'pagamento');
+  }
+
+  get profissional(): AdaptadorProfissional {
+    return this.exigirAdaptador(this.adaptadorProfissional, 'profissional');
   }
 
   definirEstrategia(estrategia: RecomendacaoStrategy | string): void {
@@ -77,12 +112,11 @@ export class SistemaRecomendacao {
 
   criarEcossistema(projeto: Projeto): EcossistemaProjeto {
     const fabrica = this.fabricaPara(projeto);
-    const { repositorio } = this.dependencias;
     const relogio = this.dependencias.relogio ?? relogioDoSistema;
     return {
       fabrica,
-      orquestrador: new OrquestradorPadrao(repositorio, fabrica, relogio),
-      substituicao: new OrquestradorSubstituicao(repositorio, fabrica, relogio),
+      orquestrador: new OrquestradorPadrao(this.repositorio, fabrica, relogio),
+      substituicao: new OrquestradorSubstituicao(this.repositorio, fabrica, relogio),
       validador: fabrica.criarValidador(),
       recomendador: fabrica.criarRecomendador(),
       notificador: fabrica.criarNotificador(),
@@ -151,6 +185,16 @@ export class SistemaRecomendacao {
 
   notificarObservadores(evento: EventoRecomendacao, projeto?: Projeto): void {
     this.publicar(evento, projeto ? this.fabricaPara(projeto).criarNotificador() : undefined);
+  }
+
+  private exigirAdaptador<T>(adaptador: T | undefined, nome: string): T {
+    if (adaptador === undefined) {
+      throw new ErroAplicacao(
+        'ADAPTADOR_NAO_CONFIGURADO',
+        `O adaptador de ${nome} não foi configurado no sistema.`,
+      );
+    }
+    return adaptador;
   }
 
   private publicar(evento: EventoRecomendacao, notificadorDoTipo?: Observador): void {

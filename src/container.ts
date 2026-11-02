@@ -22,6 +22,8 @@ import type { Observador, Sujeito } from './application/ports/observador.js';
 import { CatalogoModelos } from './application/prototipos/catalogo-modelos.js';
 import { criarModelosPadrao } from './application/prototipos/modelos-padrao.js';
 import { SistemaRecomendacao } from './application/sistema-recomendacao.js';
+import { CacheRecomendacoes } from './application/strategies/decoradores/cache-decorator.js';
+import { MontadorDecoradores } from './application/strategies/decoradores/montador-decoradores.js';
 import { FiltragemColaborativa } from './application/strategies/filtragem-colaborativa.js';
 import {
   resolverParametros,
@@ -36,6 +38,12 @@ import { criarCasosDeUso } from './application/use-cases/casos-de-uso.js';
 import { ConsultarSaude } from './application/use-cases/consultar-saude.js';
 import type { DependenciasApi } from './app.js';
 import type { Config } from './config/config.js';
+import {
+  criarAdaptadorArmazenamento,
+  criarAdaptadorPagamento,
+  criarAdaptadorProfissional,
+} from './infrastructure/adaptadores/criar-adaptadores.js';
+import { FonteCadastroAdaptada } from './infrastructure/adaptadores/profissional/fonte-cadastro-adaptada.js';
 import { ConexaoBanco } from './infrastructure/database/conexao-banco.js';
 import { criarDataSource } from './infrastructure/database/data-source.js';
 import { VerificadorBanco } from './infrastructure/database/verificador-banco.js';
@@ -47,6 +55,11 @@ import {
   RegistroAuditoriaLog,
   ServicoEmailSimulado,
 } from './infrastructure/notifications/canais-simulados.js';
+import {
+  DepositoObjetosTypeorm,
+  LivroTransacoesTypeorm,
+  RepositorioPagamentosTypeorm,
+} from './infrastructure/repositories/repositorios-integracoes.js';
 import { RepositorioProfissionaisResiliente } from './infrastructure/repositories/repositorio-profissionais-resiliente.js';
 import { RepositorioProfissionaisTypeorm } from './infrastructure/repositories/repositorio-profissionais-typeorm.js';
 import { DisjuntorCircuito } from './infrastructure/resiliencia/disjuntor.js';
@@ -94,6 +107,11 @@ export interface Container extends DependenciasApi {
   readonly repositorioProjetos: RepositorioProjetosTypeorm;
   readonly repositorioConvites: RepositorioConvitesTypeorm;
   readonly repositorioRecomendacoes: RepositorioRecomendacoesTypeorm;
+  readonly repositorioPagamentos: RepositorioPagamentosTypeorm;
+  readonly depositoObjetos: DepositoObjetosTypeorm;
+  readonly livroTransacoes: LivroTransacoesTypeorm;
+  readonly cacheRecomendacoes: CacheRecomendacoes;
+  readonly decoradores: MontadorDecoradores;
   readonly barramento: BarramentoEventosEmMemoria;
   readonly canais: CanaisSaidaContainer;
   encerrar(): Promise<void>;
@@ -161,8 +179,13 @@ export function criarContainer(
   const parametros = resolverParametros();
   const registroEstrategias = criarRegistroEstrategias();
   const repositorioProfissionais = new RepositorioProfissionaisTypeorm(dataSource);
-  const cadastroProfissionais = new RepositorioProfissionaisResiliente(
+  const adaptadorProfissional = criarAdaptadorProfissional(
+    config.integracoes.profissionais,
     repositorioProfissionais,
+  );
+  const fonteCadastro = new FonteCadastroAdaptada(adaptadorProfissional, repositorioProfissionais);
+  const cadastroProfissionais = new RepositorioProfissionaisResiliente(
+    fonteCadastro,
     new DisjuntorCircuito({
       nome: 'cadastro-profissionais',
       limiteFalhas: config.resiliencia.circuitoLimiteFalhas,
@@ -191,6 +214,25 @@ export function criarContainer(
   );
   const repositorioConvites = new RepositorioConvitesTypeorm(dataSource);
   const repositorioRecomendacoes = new RepositorioRecomendacoesTypeorm(dataSource);
+  const repositorioPagamentos = new RepositorioPagamentosTypeorm(dataSource);
+  const depositoObjetos = new DepositoObjetosTypeorm(dataSource);
+  const livroTransacoes = new LivroTransacoesTypeorm(dataSource);
+  const cacheRecomendacoes = new CacheRecomendacoes({
+    ttlMs: config.recomendacao.cacheTtlMs,
+    maximo: config.recomendacao.cacheMaximo,
+    relogio,
+  });
+  const decoradores = new MontadorDecoradores(
+    {
+      cache: cacheRecomendacoes,
+      auditoria: canais.auditoria,
+      fabricas: registroFabricas,
+      estrategias: registroEstrategias,
+      relogio,
+      logger,
+    },
+    config.recomendacao.decoradores,
+  );
   const barramento = new BarramentoEventosEmMemoria((falha) => {
     logger.error(
       {
@@ -204,16 +246,31 @@ export function criarContainer(
   });
   const sistema = new SistemaRecomendacao({
     repositorio: cadastroProfissionais,
+    conectarCadastro: (adaptador) => {
+      fonteCadastro.usar(adaptador);
+      cadastroProfissionais.invalidar();
+      return cadastroProfissionais;
+    },
     fabricas: registroFabricas,
     estrategias: registroEstrategias,
     sujeito: barramento,
     parametros,
     relogio,
   });
+  sistema.configurarAdaptadores(
+    criarAdaptadorArmazenamento(
+      config.integracoes.armazenamento,
+      depositoObjetos,
+      config.integracoes.diretorioLocal,
+    ),
+    criarAdaptadorPagamento(config.integracoes.pagamento, livroTransacoes),
+    adaptadorProfissional,
+  );
   const atualizador = new AtualizadorComposicao({
     projetos: repositorioProjetos,
     recomendacoes: repositorioRecomendacoes,
     sistema,
+    decoradores,
   });
   registrarObservadores(barramento, criarObservadores({ canais, atualizador }));
   const casos = criarCasosDeUso(
@@ -221,6 +278,8 @@ export function criarContainer(
       projetos: repositorioProjetos,
       convites: repositorioConvites,
       recomendacoes: repositorioRecomendacoes,
+      pagamentos: repositorioPagamentos,
+      decoradores,
       estrategias: registroEstrategias,
       fabricas: registroFabricas,
       modelos,
@@ -248,6 +307,11 @@ export function criarContainer(
     repositorioProjetos,
     repositorioConvites,
     repositorioRecomendacoes,
+    repositorioPagamentos,
+    depositoObjetos,
+    livroTransacoes,
+    cacheRecomendacoes,
+    decoradores,
     barramento,
     canais,
     async encerrar() {

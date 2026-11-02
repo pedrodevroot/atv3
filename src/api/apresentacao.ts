@@ -3,6 +3,7 @@ import type { ResultadoOrquestracao } from '../application/orchestration/orquest
 import type { ModeloProjeto } from '../application/prototipos/catalogo-modelos.js';
 import type { EntradaAuditoria } from '../application/ports/canais-saida.js';
 import type { AnaliseComposicao } from '../application/use-cases/casos-consulta.js';
+import type { PagamentoComStatus } from '../application/use-cases/casos-integracoes.js';
 import type { RankingPorPapel } from '../application/strategies/estrategia-recomendacao.js';
 import type { Convite } from '../domain/entidades/convite.js';
 import type { Equipe } from '../domain/entidades/equipe.js';
@@ -39,6 +40,28 @@ export function apresentarEquipe(equipe: Equipe) {
   };
 }
 
+function apresentarServicos(projeto: Projeto) {
+  return {
+    servicoPrincipal: { ...projeto.servicoPrincipal.exportar() } as Record<string, unknown>,
+    custoTotalServicos: projeto.calcularCustoTotal(),
+    prazoTotalDias: projeto.obterPrazoTotal(),
+  };
+}
+
+export function apresentarPagamento({ pagamento, status }: PagamentoComStatus) {
+  return {
+    id: pagamento.id,
+    projetoId: pagamento.projetoId,
+    equipeId: pagamento.equipeId,
+    papel: pagamento.papel,
+    profissionalId: pagamento.profissionalId,
+    valor: pagamento.valor,
+    provedor: pagamento.provedor,
+    status,
+    criadoEm: pagamento.criadoEm.toISOString(),
+  };
+}
+
 export function apresentarProjeto(projeto: Projeto) {
   const formada = projeto.equipeFormada;
   return {
@@ -57,6 +80,7 @@ export function apresentarProjeto(projeto: Projeto) {
       papel: requisito.papel,
       peso: requisito.peso,
     })),
+    ...apresentarServicos(projeto),
     detalhes: { ...projeto.detalhes },
     equipes: projeto.equipes
       .filter((equipe) => equipe.ativa || equipe === formada)
@@ -81,6 +105,7 @@ export function apresentarModelo(modelo: ModeloProjeto) {
       papel: requisito.papel,
       peso: requisito.peso,
     })),
+    ...apresentarServicos(prototipo),
     detalhes: { ...prototipo.detalhes },
   };
 }

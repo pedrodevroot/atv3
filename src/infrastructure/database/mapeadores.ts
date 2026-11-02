@@ -7,7 +7,7 @@ import { ParticipacaoProjeto } from '../../domain/entidades/participacao-projeto
 import { Profissional } from '../../domain/entidades/profissional.js';
 import type { Projeto } from '../../domain/entidades/projeto.js';
 import { Recomendacao } from '../../domain/entidades/recomendacao.js';
-import { RequisitoPapel } from '../../domain/entidades/requisito-papel.js';
+import { servicoDeDados } from '../../domain/entidades/servicos/pacote-servico.js';
 import type { Papel } from '../../domain/enums/papel.js';
 import type { StatusConvite, StatusEquipe, StatusMembro } from '../../domain/enums/status.js';
 import type { TipoCaptacao } from '../../domain/enums/tipo-captacao.js';
@@ -179,6 +179,7 @@ export function deProjeto(projeto: Projeto): LinhasProjeto {
       estrategia: projeto.estrategia,
       criado_em: projeto.criadoEm,
       detalhes: { ...projeto.detalhes },
+      servico_principal: projeto.servicoPrincipal.exportar(),
     },
     requisitos: projeto.requisitos.map((requisito, ordem) => ({
       projeto_id: projeto.id,
@@ -212,7 +213,6 @@ export function deProjeto(projeto: Projeto): LinhasProjeto {
 
 export interface LinhasProjetoLidas {
   projeto: Omit<ProjetoRow, 'orcamento'> & { orcamento: Numerico };
-  requisitos: (Omit<RequisitoPapelRow, 'peso'> & { peso: Numerico })[];
   equipes: EquipeRow[];
   membros: (Omit<MembroEquipeRow, 'custo'> & { custo: Numerico })[];
 }
@@ -266,9 +266,7 @@ export function paraProjeto(
       latitude: projeto.latitude,
       longitude: projeto.longitude,
     }),
-    requisitos: [...linhas.requisitos]
-      .sort((a, b) => a.ordem - b.ordem)
-      .map((requisito) => RequisitoPapel.criar(requisito.papel as Papel, Number(requisito.peso))),
+    servicoPrincipal: servicoDeDados(projeto.servico_principal),
     estrategia: projeto.estrategia,
     equipes,
     criadoEm: projeto.criado_em,

@@ -8,6 +8,8 @@ import type { VisitanteProjeto, Visitavel } from '../visitante/visitante-projeto
 import type { Equipe } from './equipe.js';
 import type { MembroEquipe } from './membro-equipe.js';
 import { RequisitoPapel } from './requisito-papel.js';
+import { pacoteDeRequisitos, requisitosDoServico } from './servicos/pacote-servico.js';
+import type { ServicoProjeto } from './servicos/servico-projeto.js';
 
 export const LIMIAR_REAVALIACAO_PADRAO = 0.15;
 export const ORCAMENTO_MAXIMO = 999_999_999_999;
@@ -25,7 +27,8 @@ export interface DadosProjeto {
   dataInicio: Date;
   dataEntrega: Date;
   localizacao: Localizacao;
-  requisitos: readonly RequisitoPapel[];
+  requisitos?: readonly RequisitoPapel[];
+  servicoPrincipal?: ServicoProjeto;
   estrategia: string;
   equipes?: readonly Equipe[];
   criadoEm?: Date;
@@ -46,6 +49,7 @@ export interface AjustesProjeto {
   dataEntrega?: Date;
   localizacao?: Localizacao;
   requisitos?: readonly RequisitoPapel[];
+  servicoPrincipal?: ServicoProjeto;
   estrategia?: string;
   criadoEm?: Date;
   detalhes?: DetalhesProjeto;
@@ -70,8 +74,9 @@ export abstract class Projeto implements Visitavel {
   readonly genero: string;
   readonly duracaoMinutos: number;
   readonly localizacao: Localizacao;
-  readonly requisitos: readonly RequisitoPapel[];
+  readonly servicoPrincipal: ServicoProjeto;
   readonly criadoEm: Date;
+  private readonly _requisitos: readonly RequisitoPapel[];
   private _orcamento: number;
   private _periodo: Intervalo;
   private _estrategia: string;
@@ -87,9 +92,9 @@ export abstract class Projeto implements Visitavel {
       `Duração deve ser de no máximo ${DURACAO_MAXIMA_MINUTOS} minutos.`,
     );
     Projeto.validarOrcamento(dados.orcamento);
-    garantir(dados.requisitos.length > 0, 'Projeto precisa de ao menos um papel obrigatório.');
-    const papeis = dados.requisitos.map((requisito) => requisito.papel);
-    garantir(new Set(papeis).size === papeis.length, 'Papéis obrigatórios não podem se repetir.');
+    const servicoPrincipal = Projeto.servicoDe(dados);
+    const problemasServico = servicoPrincipal.validar();
+    garantir(problemasServico.length === 0, problemasServico.join(' '));
     const periodo = Intervalo.criar(dados.dataInicio, dados.dataEntrega);
     garantir(periodo.duracaoDias > 0, 'Data de entrega deve ser posterior à data de início.');
     const id = dados.id ?? gerarId();
@@ -108,7 +113,8 @@ export abstract class Projeto implements Visitavel {
     this._orcamento = dados.orcamento;
     this._periodo = periodo;
     this.localizacao = dados.localizacao;
-    this.requisitos = [...dados.requisitos];
+    this.servicoPrincipal = servicoPrincipal;
+    this._requisitos = requisitosDoServico(servicoPrincipal);
     this._estrategia = garantirTexto(dados.estrategia, 'Estratégia do projeto');
     this._equipes = [...equipes];
     this.criadoEm = garantirData(dados.criadoEm ?? new Date(), 'Data de criação do projeto');
@@ -126,6 +132,7 @@ export abstract class Projeto implements Visitavel {
   protected abstract aplicarDetalhes(detalhes: DetalhesProjeto): void;
 
   protected dadosDoClone(ajustes: AjustesProjeto): DadosProjeto {
+    const { requisitos, servicoPrincipal } = ajustes;
     return {
       id: ajustes.id ?? gerarId(),
       titulo: ajustes.titulo ?? this.titulo,
@@ -136,9 +143,17 @@ export abstract class Projeto implements Visitavel {
       dataInicio: new Date((ajustes.dataInicio ?? this._periodo.inicio).getTime()),
       dataEntrega: new Date((ajustes.dataEntrega ?? this._periodo.fim).getTime()),
       localizacao: Localizacao.criar(ajustes.localizacao ?? this.localizacao),
-      requisitos: (ajustes.requisitos ?? this.requisitos).map((requisito) =>
-        RequisitoPapel.criar(requisito.papel, requisito.peso),
-      ),
+      ...(requisitos
+        ? {
+            requisitos: requisitos.map((requisito) =>
+              RequisitoPapel.criar(requisito.papel, requisito.peso),
+            ),
+          }
+        : {}),
+      ...(servicoPrincipal ? { servicoPrincipal: servicoPrincipal.clonar() } : {}),
+      ...(requisitos || servicoPrincipal
+        ? {}
+        : { servicoPrincipal: this.servicoPrincipal.clonar() }),
       estrategia: ajustes.estrategia ?? this._estrategia,
       criadoEm: ajustes.criadoEm ?? new Date(),
     };
@@ -164,8 +179,20 @@ export abstract class Projeto implements Visitavel {
     return this._estrategia;
   }
 
+  get requisitos(): readonly RequisitoPapel[] {
+    return this._requisitos;
+  }
+
   get papeisObrigatorios(): Papel[] {
     return this.requisitos.map((requisito) => requisito.papel);
+  }
+
+  calcularCustoTotal(): number {
+    return this.servicoPrincipal.calcularCusto();
+  }
+
+  obterPrazoTotal(): number {
+    return this.servicoPrincipal.obterPrazo();
   }
 
   get equipes(): readonly Equipe[] {
@@ -280,6 +307,21 @@ export abstract class Projeto implements Visitavel {
       'Projeto já possui equipe formada.',
       'TRANSICAO_INVALIDA',
     );
+  }
+
+  private static servicoDe(dados: DadosProjeto): ServicoProjeto {
+    if (dados.servicoPrincipal) {
+      garantir(
+        dados.requisitos === undefined,
+        'Informe os requisitos ou o serviço principal do projeto, não os dois.',
+      );
+      return dados.servicoPrincipal;
+    }
+    const requisitos = dados.requisitos ?? [];
+    garantir(requisitos.length > 0, 'Projeto precisa de ao menos um papel obrigatório.');
+    const papeis = requisitos.map((requisito) => requisito.papel);
+    garantir(new Set(papeis).size === papeis.length, 'Papéis obrigatórios não podem se repetir.');
+    return pacoteDeRequisitos(requisitos);
   }
 
   private static validarOrcamento(orcamento: number): void {

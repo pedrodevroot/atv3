@@ -1,5 +1,6 @@
 import type { DadosCriacaoProjeto } from '../../domain/entidades/projeto.js';
-import { RequisitoPapel } from '../../domain/entidades/requisito-papel.js';
+import { PacoteServico } from '../../domain/entidades/servicos/pacote-servico.js';
+import { ServicoAtomico } from '../../domain/entidades/servicos/servico-atomico.js';
 import { Papel } from '../../domain/enums/papel.js';
 import { TipoCaptacao } from '../../domain/enums/tipo-captacao.js';
 import { Localizacao } from '../../domain/value-objects/localizacao.js';
@@ -20,8 +21,14 @@ function diasDepois(dias: number): Date {
   return new Date(INICIO_REFERENCIA.getTime() + dias * 86_400_000);
 }
 
-function requisitos(pesos: Partial<Record<Papel, number>>): RequisitoPapel[] {
-  return Object.entries(pesos).map(([papel, peso]) => RequisitoPapel.criar(papel as Papel, peso));
+function servico(
+  nome: string,
+  papel: Papel,
+  peso: number,
+  custo: number,
+  prazoDias: number,
+): ServicoAtomico {
+  return ServicoAtomico.criar({ nome, papel, peso, custo, prazoDias });
 }
 
 const DEFINICOES: readonly DefinicaoModelo[] = [
@@ -38,13 +45,17 @@ const DEFINICOES: readonly DefinicaoModelo[] = [
       orcamento: 180_000,
       dataInicio: INICIO_REFERENCIA,
       dataEntrega: diasDepois(120),
-      requisitos: requisitos({
-        [Papel.DIRETOR]: 5,
-        [Papel.ROTEIRISTA]: 3,
-        [Papel.SONOPLASTA]: 4,
-        [Papel.EDITOR]: 4,
-        [Papel.DIRETOR_FOTOGRAFIA]: 3,
-      }),
+      servicoPrincipal: PacoteServico.criar('Documentário de entrevistas', [
+        PacoteServico.criar('Pré-produção', [
+          servico('Direção', Papel.DIRETOR, 5, 10_000, 10),
+          servico('Roteiro de pesquisa', Papel.ROTEIRISTA, 3, 6_000, 10),
+        ]),
+        PacoteServico.criar('Captação e pós-produção', [
+          servico('Som direto', Papel.SONOPLASTA, 4, 8_000, 10),
+          servico('Montagem', Papel.EDITOR, 4, 8_000, 15),
+          servico('Fotografia das entrevistas', Papel.DIRETOR_FOTOGRAFIA, 3, 8_000, 10),
+        ]),
+      ]),
       detalhes: { tema: 'Tema a definir', entrevistados: [] },
     },
   },
@@ -60,13 +71,20 @@ const DEFINICOES: readonly DefinicaoModelo[] = [
       orcamento: 250_000,
       dataInicio: INICIO_REFERENCIA,
       dataEntrega: diasDepois(180),
-      requisitos: requisitos({
-        [Papel.DIRETOR]: 5,
-        [Papel.EFEITOS_VISUAIS]: 5,
-        [Papel.ROTEIRISTA]: 3,
-        [Papel.SONOPLASTA]: 2,
-        [Papel.EDITOR]: 3,
-      }),
+      servicoPrincipal: PacoteServico.criar('Curta de animação 3D', [
+        PacoteServico.criar('Produção', [
+          servico('Direção', Papel.DIRETOR, 5, 10_000, 10),
+          PacoteServico.criar('Pipeline 3D', [
+            servico('Modelagem', Papel.EFEITOS_VISUAIS, 5, 8_000, 10),
+            servico('Animação e renderização', Papel.EFEITOS_VISUAIS, 4, 8_000, 15),
+          ]),
+          servico('Roteiro', Papel.ROTEIRISTA, 3, 5_000, 5),
+        ]),
+        PacoteServico.criar('Pós-produção', [
+          servico('Desenho de som', Papel.SONOPLASTA, 2, 4_000, 5),
+          servico('Montagem', Papel.EDITOR, 3, 5_000, 5),
+        ]),
+      ]),
       detalhes: { tecnica: '3D', softwares: ['Blender', 'Maya'], quadrosPorSegundo: 24 },
     },
   },
@@ -82,12 +100,16 @@ const DEFINICOES: readonly DefinicaoModelo[] = [
       orcamento: 90_000,
       dataInicio: INICIO_REFERENCIA,
       dataEntrega: diasDepois(45),
-      requisitos: requisitos({
-        [Papel.DIRETOR]: 5,
-        [Papel.DIRETOR_FOTOGRAFIA]: 4,
-        [Papel.EDITOR]: 4,
-        [Papel.SONOPLASTA]: 2,
-      }),
+      servicoPrincipal: PacoteServico.criar('Campanha publicitária digital', [
+        PacoteServico.criar('Filmagem', [
+          servico('Direção', Papel.DIRETOR, 5, 5_000, 3),
+          servico('Fotografia', Papel.DIRETOR_FOTOGRAFIA, 4, 4_000, 3),
+        ]),
+        PacoteServico.criar('Pós-produção', [
+          servico('Edição', Papel.EDITOR, 4, 4_000, 3),
+          servico('Trilha', Papel.SONOPLASTA, 2, 2_000, 3),
+        ]),
+      ]),
       detalhes: { marca: 'Marca a definir', veiculacao: ['DIGITAL'], pecas: 3 },
     },
   },
@@ -103,14 +125,21 @@ const DEFINICOES: readonly DefinicaoModelo[] = [
       orcamento: 600_000,
       dataInicio: INICIO_REFERENCIA,
       dataEntrega: diasDepois(150),
-      requisitos: requisitos({
-        [Papel.DIRETOR]: 5,
-        [Papel.ROTEIRISTA]: 4,
-        [Papel.DIRETOR_FOTOGRAFIA]: 4,
-        [Papel.EDITOR]: 4,
-        [Papel.SONOPLASTA]: 3,
-        [Papel.EFEITOS_VISUAIS]: 2,
-      }),
+      servicoPrincipal: PacoteServico.criar('Longa de ficção', [
+        PacoteServico.criar('Pré-produção', [
+          servico('Direção', Papel.DIRETOR, 5, 20_000, 10),
+          servico('Roteiro', Papel.ROTEIRISTA, 4, 10_000, 10),
+        ]),
+        servico('Fotografia', Papel.DIRETOR_FOTOGRAFIA, 4, 15_000, 10),
+        PacoteServico.criar('Pós-produção', [
+          PacoteServico.criar('Imagem', [
+            servico('Edição', Papel.EDITOR, 4, 10_000, 10),
+            servico('Coloração', Papel.EDITOR, 3, 5_000, 5),
+          ]),
+          servico('Mixagem de áudio', Papel.SONOPLASTA, 3, 8_000, 5),
+          servico('Efeitos visuais', Papel.EFEITOS_VISUAIS, 2, 7_000, 5),
+        ]),
+      ]),
     },
   },
 ];

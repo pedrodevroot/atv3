@@ -19,6 +19,7 @@ import {
   ReavaliarProjeto,
   RecomendarNovamente,
 } from './casos-projeto.js';
+import { ArquivosProjeto, PagamentosEquipe } from './casos-integracoes.js';
 import type { DependenciasCasosDeUso } from './dependencias.js';
 
 export interface CasosDeUso {
@@ -34,6 +35,8 @@ export interface CasosDeUso {
   readonly expirarConvites: ExpirarConvites;
   readonly finalizarEquipe: FinalizarEquipe;
   readonly consultas: ConsultasRecomendacao;
+  readonly arquivos: ArquivosProjeto;
+  readonly pagamentos: PagamentosEquipe;
 }
 
 export function criarCasosDeUso(
@@ -55,5 +58,7 @@ export function criarCasosDeUso(
     expirarConvites,
     finalizarEquipe: new FinalizarEquipe(deps),
     consultas: new ConsultasRecomendacao(deps, leitores.auditoria, leitores.mensagens),
+    arquivos: new ArquivosProjeto(deps),
+    pagamentos: new PagamentosEquipe(deps),
   };
 }

@@ -1,4 +1,5 @@
 import { EntitySchema } from 'typeorm';
+import type { DadosServico } from '../../../domain/entidades/servicos/servico-projeto.js';
 
 export interface ProjetoRow {
   id: string;
@@ -17,6 +18,7 @@ export interface ProjetoRow {
   estrategia: string;
   criado_em: Date;
   detalhes: Record<string, unknown>;
+  servico_principal: DadosServico;
 }
 
 export interface RequisitoPapelRow {
@@ -101,6 +103,7 @@ export const ProjetoSchema = new EntitySchema<ProjetoRow>({
     estrategia: { type: 'varchar', length: 64 },
     criado_em: { type: 'timestamptz' },
     detalhes: { type: 'jsonb', default: () => "'{}'::jsonb" },
+    servico_principal: { type: 'jsonb' },
   },
 });
 

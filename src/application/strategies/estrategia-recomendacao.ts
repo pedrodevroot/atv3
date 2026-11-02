@@ -30,3 +30,5 @@ export interface EstrategiaRecomendacao {
     parametros: ParametrosRecomendacao,
   ): RankingPorPapel;
 }
+
+export type RecomendacaoStrategy = EstrategiaRecomendacao;

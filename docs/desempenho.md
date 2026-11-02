@@ -28,6 +28,30 @@ O cenário é pessimista: em produção o gerador de carga não divide a CPU com
 - Com 100 requisições sempre em andamento, a latência média segue a Lei de Little: 100 / 87 req/s ≈ 1,1 s, que é o valor medido.
 - **Depois da ATVII**, no mesmo ambiente e com o cache aquecido: requisição isolada de 0,26 s a 0,31 s; rajada de 100 simultâneas com p50 de 0,82 s a 0,89 s, máximo de 0,89 s a 0,95 s e 0 erros. Medições feitas enquanto outros containers disputavam a CPU chegaram a 2,7 s, o que mostra que o resultado depende da carga da máquina.
 
+## Medição da ATVIII
+
+Mesma requisição e mesma configuração (`node dist/cluster.js` com 8 processos e `DB_POOL_MAX=64`),
+comparando o código da ATVII com o da ATVIII na mesma sessão, com o cadastro em cache. Cada linha
+reúne 10 requisições isoladas e 3 rajadas de 100 simultâneas. A máquina tinha outros containers
+ligados, então os números servem para comparar as linhas entre si.
+
+| Versão e pilha                        | Isolada (mediana) | Rajada: p50   | Rajada: máximo | Erros |
+| ------------------------------------- | ----------------- | ------------- | -------------- | ----- |
+| ATVII                                 | 76 ms             | 1,01 a 1,39 s | 1,15 a 1,61 s  | 0     |
+| ATVIII, sem decoradores               | 67 ms             | 1,26 a 1,65 s | 1,46 a 1,84 s  | 0     |
+| ATVIII, auditoria e compressão        | 56 ms             | 1,20 a 1,26 s | 1,34 a 1,53 s  | 0     |
+| ATVIII, cache, auditoria e compressão | 45 ms             | 0,62 a 0,77 s | 0,73 a 0,91 s  | 0     |
+
+- **RNF01 e RNF02:** todas as rajadas terminaram abaixo de 2 s, sem erros.
+- **Sem decoradores**, a ATVIII ficou um pouco mais lenta que a ATVII na rajada. A diferença é da
+  ordem da variação entre rodadas, e três rodadas não bastam para separar as duas coisas. Cada
+  gravação de projeto agora inclui a árvore de serviços.
+- **Com cache**, o máximo caiu pela metade, porque a rajada repete o mesmo projeto. Projetos todos
+  diferentes se comportam como a linha sem cache.
+- **Limite observado:** com 4 processos, o padrão do Docker Compose, e a máquina ocupada por uma
+  compilação em paralelo, a rajada sem cache chegou a 3,0 s de máximo e a com a pilha completa a
+  1,7 s, ambas sem erros. Essa medição não teve o controle das demais e não tem equivalente da ATVII.
+
 ## Como chegamos lá
 
 Cada etapa foi medida antes de otimizar (profiler de CPU do Node e `pg_stat_activity`):

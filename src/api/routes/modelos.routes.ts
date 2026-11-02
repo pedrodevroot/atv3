@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { CasosDeUso } from '../../application/use-cases/casos-de-uso.js';
+import type { DadosServico } from '../../domain/entidades/servicos/servico-projeto.js';
 import { apresentarModelo, apresentarRodada, apresentarTipoProjeto } from '../apresentacao.js';
 import { RespostaErro } from '../schemas/comum.schema.js';
 import {
@@ -51,10 +52,11 @@ export function rotasTiposEModelos(casos: CasosDeUso): FastifyPluginAsyncTypebox
         },
       },
       async (requisicao, resposta) => {
-        const { dataInicio, dataEntrega, ...corpo } = requisicao.body;
+        const { dataInicio, dataEntrega, servicoPrincipal, ...corpo } = requisicao.body;
         const rodada = await casos.criarProjetoDeModelo.executar(
           {
             ...corpo,
+            ...(servicoPrincipal ? { servicoPrincipal: servicoPrincipal as DadosServico } : {}),
             modeloId: requisicao.params.modeloId,
             dataInicio: new Date(dataInicio),
             dataEntrega: new Date(dataEntrega),

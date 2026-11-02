@@ -1,5 +1,10 @@
 import type { EntitySchema } from 'typeorm';
 import {
+  ObjetoExternoSchema,
+  PagamentoMembroSchema,
+  TransacaoExternaSchema,
+} from './integracoes.schema.js';
+import {
   AvaliacaoSchema,
   CompetenciaSchema,
   DisponibilidadeSchema,
@@ -30,4 +35,7 @@ export const entidades: EntitySchema[] = [
   ConviteSchema,
   AuditoriaSchema,
   MensagemInternaSchema,
+  ObjetoExternoSchema,
+  TransacaoExternaSchema,
+  PagamentoMembroSchema,
 ] as EntitySchema[];

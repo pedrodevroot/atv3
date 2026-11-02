@@ -32,11 +32,7 @@ export class RepositorioProjetosTypeorm implements RepositorioProjetos {
     if (!projeto) {
       return undefined;
     }
-    const [requisitos, equipes, membros] = await Promise.all([
-      this.dataSource.query<LinhasProjetoLidas['requisitos']>(
-        'SELECT * FROM requisito_papel WHERE projeto_id = $1',
-        [id],
-      ),
+    const [equipes, membros] = await Promise.all([
       this.dataSource.query<LinhasProjetoLidas['equipes']>(
         'SELECT * FROM equipe WHERE projeto_id = $1 ORDER BY ordem, criada_em, id',
         [id],
@@ -51,11 +47,7 @@ export class RepositorioProjetosTypeorm implements RepositorioProjetos {
     const profissionais = await this.profissionais.obterPorIds(
       membros.map((membro) => membro.profissional_id),
     );
-    const reconstruido = paraProjeto(
-      { projeto, requisitos, equipes, membros },
-      profissionais,
-      this.fabricas,
-    );
+    const reconstruido = paraProjeto({ projeto, equipes, membros }, profissionais, this.fabricas);
     this.versoes.set(reconstruido, projeto.versao);
     return reconstruido;
   }
